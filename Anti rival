@@ -1,5 +1,5 @@
--- [V1.8.2 Update] UI Title and Keybinds Updated to Anti-rival V1.8.2-FREE Build, Version Updated to 1.8.2, Signature A&R Art Added, Watermark Text Updated, Text Overflow Fix Applied, AutomaticSize Added, Watermark Size & Padding Expanded, Advanced Anti-Cheat Environment, Garbage Collection Hook Protection, Xeno Kick Logic, Show Keybinds & Draggable Watermark Added, Refreshed (2026-07-29)
--- [Update Notice] Premium Build Key System Integration & Key System Mouse Cursor Force-Enable.
+-- [V1.8.3 Update] UI Title and Keybinds Updated to Anti-rival V1.8.3-FREE Build, Version Updated to 1.8.3, Signature A&R Art Added, Watermark Text Updated, Text Overflow Fix Applied, AutomaticSize Added, Watermark Size & Padding Expanded, Advanced Anti-Cheat Environment, Garbage Collection Hook Protection, Xeno Kick Logic, Show Keybinds & Draggable Watermark Added, Refreshed (2026-07-29)[cite: 2]
+-- [Update Notice] Premium Build Key System Integration & Key System Mouse Cursor Force-Enable.[cite: 2]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "A&R-X9vL-7mK2-pQ4w-8sR1"
@@ -10,7 +10,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
 
--- 키 입력 창이 뜰 때 마우스 커서 강제 활성화 (V1.8.2 추가)
+-- 키 입력 창이 뜰 때 마우스 커서 강제 활성화 (V1.8.3 개선)
 local function forceEnableCursorForModal()
 	pcall(function()
 		if not UserInputService.TouchEnabled then
@@ -35,7 +35,7 @@ local function initMainScript()
 		end
 	end)
 
-	-- 익스큐터(Xeno) 감지 및 차단 로직 (Kick)
+	-- 익스큐터(Xeno) 감지 및 차단 로직 (Kick)[cite: 2]
 	pcall(function()
 		local executorName = ""
 		if identifyexecutor then
@@ -49,7 +49,7 @@ local function initMainScript()
 		end
 	end)
 
-	-- 추가적인 안티치트 우회 및 환경 무결성 은폐 레이어 (Advanced Anti-Cheat Hook & GC Spoofing)
+	-- 추가적인 안티치트 우회 및 환경 무결성 은폐 레이어 (Advanced Anti-Cheat Hook & GC Spoofing)[cite: 2]
 	pcall(function()
 		if getgenv and hookfunction and newcclosure then
 			local coreGui = game:GetService("CoreGui")
@@ -244,7 +244,7 @@ local function initMainScript()
 	watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 	watermarkLabel.BackgroundTransparency = 1
 	watermarkLabel.RichText = true
-	watermarkLabel.Text = '| Anti rival | Rivals | V1.8.2-FREE | ' .. player.Name .. ' | <font color="rgb(100,220,100)">60 FPS</font>'
+	watermarkLabel.Text = '| Anti rival | Rivals | V1.8.3-FREE | ' .. player.Name .. ' | <font color="rgb(100,220,100)">60 FPS</font>'
 	watermarkLabel.TextColor3 = Color3.fromRGB(220, 220, 230)
 	watermarkLabel.TextSize = 11
 	watermarkLabel.Font = Enum.Font.Code
@@ -263,7 +263,7 @@ local function initMainScript()
 			frameCount = 0
 			lastFpsUpdate = now
 			if showWatermarkOn then
-				watermarkLabel.Text = '| Anti rival | Rivals | V1.8.2-FREE | ' .. player.Name .. ' | <font color="rgb(100,220,100)">' .. currentFps .. ' FPS</font>'
+				watermarkLabel.Text = '| Anti rival | Rivals | V1.8.3-FREE | ' .. player.Name .. ' | <font color="rgb(100,220,100)">' .. currentFps .. ' FPS</font>'
 			end
 		end
 	end))
@@ -289,7 +289,7 @@ local function initMainScript()
 	kbTitle.Position = UDim2.fromOffset(10, 0)
 	kbTitle.BackgroundTransparency = 1
 	kbTitle.RichText = true
-	kbTitle.Text = '<font color="rgb(255,0,0)">Keybinds (V1.8.2 FREE Build)</font>'
+	kbTitle.Text = '<font color="rgb(255,0,0)">Keybinds (V1.8.3 FREE Build)</font>'
 	kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 	kbTitle.TextSize = 13
 	kbTitle.Font = Enum.Font.Code
@@ -523,7 +523,7 @@ local function initMainScript()
 	title.Position = UDim2.new(0.5, -45, 0.5, 0)
 	title.Size = UDim2.fromOffset(260, 20)
 	title.BackgroundTransparency = 1
-	title.Text = "Anti-rival V1.8.2-FREE Build"
+	title.Text = "Anti-rival V1.8.3-FREE Build"
 	title.TextColor3 = Color3.fromRGB(255, 0, 0)
 	title.TextSize = 11
 	title.Font = Enum.Font.Code
@@ -896,11 +896,13 @@ local function initMainScript()
 
 	trackConn(UserInputService.JumpRequest:Connect(function()
 		if infiniteJumpOn then
-			pcall(function()
-				local hum, _ = getSafeParts()
-				if hum then
-					hum:ChangeState(Enum.HumanoidStateType.Jumping)
-				end
+			task.defer(function()
+				pcall(function()
+					local hum, _ = getSafeParts()
+					if hum then
+						hum:ChangeState(Enum.HumanoidStateType.Jumping)
+					end
+				end)
 			end)
 		end
 	end))
@@ -1522,8 +1524,8 @@ local function initMainScript()
 	end)
 
 	showPage("main")
-	print("Anti-rival V1.8.2-FREE Build Loaded Successfully!")
-	print("[Update Info] Version: V1.8.2 | Time: 2026-07-29 | Signature A&R Art Added to Watermark")
+	print("Anti-rival V1.8.3-FREE Build Loaded Successfully!")
+	print("[Update Info] Version: V1.8.3 | Time: 2026-07-29 | Signature A&R Art Added to Watermark")
 end
 
 if KEY_SYSTEM_ENABLED then
@@ -1550,7 +1552,6 @@ if KEY_SYSTEM_ENABLED then
 	keyFrame.Draggable = true
 	keyFrame.Parent = keyGui
 
-	-- 키 입력 창이 켜져 있는 동안 마우스 커서 강제 유지 (V1.8.2 실시간 처리)
 	forceEnableCursorForModal()
 	local cursorConnection
 	cursorConnection = RunService.RenderStepped:Connect(function()
@@ -1572,7 +1573,7 @@ if KEY_SYSTEM_ENABLED then
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(255,50,50)">Anti-Rival V1.8.2 Key System</font>'
+	keyTitle.Text = '<font color="rgb(255,50,50)">Anti-Rival V1.8.3 Key System</font>'
 	keyTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 	keyTitle.TextSize = 14
 	keyTitle.Font = Enum.Font.Code
