@@ -1,0 +1,1662 @@
+-- [V1.8.2 Update] UI Title and Keybinds Updated to Anti-rival V1.8.2-FREE Build, Version Updated to 1.8.2, Signature A&R Art Added, Watermark Text Updated, Text Overflow Fix Applied, AutomaticSize Added, Watermark Size & Padding Expanded, Advanced Anti-Cheat Environment, Garbage Collection Hook Protection, Xeno Kick Logic, Show Keybinds & Draggable Watermark Added, Refreshed (2026-07-29)
+-- [Update Notice] Premium Build Key System Integration & Key System Mouse Cursor Force-Enable.
+
+local KEY_SYSTEM_ENABLED = true
+local CORRECT_KEY = "ZyJOMMbrndeyZoOIwycUYCArUpelajZK"
+local WORK_INK_URL = "https://work.ink/2MIg/anti-rival-free"
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+
+-- 키 입력 창이 뜰 때 마우스 커서 강제 활성화 (V1.8.2 추가)
+local function forceEnableCursorForModal()
+	pcall(function()
+		if not UserInputService.TouchEnabled then
+			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+			UserInputService.MouseIconEnabled = true
+		end
+	end)
+end
+
+local function initMainScript()
+	local successInit, initError = pcall(function()
+		if getgenv and type(getgenv) == "function" then
+			if not getgenv().AntiRivalConnectionList then
+				getgenv().AntiRivalConnectionList = {}
+			end
+			for _, conn in ipairs(getgenv().AntiRivalConnectionList) do
+				if typeof(conn) == "RBXScriptConnection" then
+					pcall(function() conn:Disconnect() end)
+				end
+			end
+			getgenv().AntiRivalConnectionList = {}
+		end
+	end)
+
+	-- 익스큐터(Xeno) 감지 및 차단 로직 (Kick)
+	pcall(function()
+		local executorName = ""
+		if identifyexecutor then
+			executorName = identifyexecutor()
+		elseif getexecutorname then
+			executorName = getexecutorname()
+		end
+		
+		if type(executorName) == "string" and executorName:lower():find("xeno") then
+			game:GetService("Players").LocalPlayer:Kick("This script is not supported in this executor!")
+		end
+	end)
+
+	-- 추가적인 안티치트 우회 및 환경 무결성 은폐 레이어 (Advanced Anti-Cheat Hook & GC Spoofing)
+	pcall(function()
+		if getgenv and hookfunction and newcclosure then
+			local coreGui = game:GetService("CoreGui")
+			if protectgui then
+				pcall(function() protectgui(coreGui) end)
+			end
+
+			if getgc and type(getgc) == "function" then
+				for _, obj in ipairs(getgc(true)) do
+					if type(obj) == "table" then
+						pcall(function()
+							if rawget(obj, "Detect") or rawget(obj, "AntiCheat") then
+								rawset(obj, "Detect", function() return false end)
+							end
+						end)
+					end
+				end
+			end
+
+			local mt = getrawmetatable and getrawmetatable(game)
+			if mt and setreadonly then
+				setreadonly(mt, false)
+				local oldIndex = mt.__index
+				mt.__index = newcclosure(function(self, idx)
+					return oldIndex(self, idx)
+				end)
+				setreadonly(mt, true)
+			end
+		end
+	end)
+
+	local Lighting = game:GetService("Lighting")
+	local Workspace = game:GetService("Workspace")
+
+	local isMobile = false
+	pcall(function()
+		isMobile = UserInputService.TouchEnabled
+	end)
+
+	if not isMobile then
+		pcall(function()
+			local GuiService = game:GetService("GuiService")
+			if GuiService:IsTenFootInterface() == false and (not UserInputService.KeyboardEnabled) then
+				isMobile = true
+			end
+		end)
+	end
+
+	local uiScaleFactor = isMobile and 0.55 or 1.0
+
+	pcall(function()
+		local playerGui = player:WaitForChild("PlayerGui", 5)
+		if playerGui then
+			for _, guiObj in ipairs(playerGui:GetChildren()) do
+				if guiObj.Name == "AntiRival" or guiObj.Name == "AntiRivalGui" or guiObj.Name == "AntiRivalKeybinds" or guiObj.Name == "AntiRivalWatermark" or guiObj.Name:find("AntiRival") then
+					guiObj:Destroy()
+				end
+			end
+		end
+	end)
+
+	local walkOn, fightOn, espOn, namesOn, healthOn, noclipOn = false, false, false, false, false, false
+	local ragebotOn = false
+	local auraOn = false
+	local triggerBotOn = false
+	local wallbangOn = false
+	local godModeOn = false
+	local orbitOn = false
+	local voidSpanOn = false
+	local infiniteJumpOn = false
+	local forceThirdPersonOn = false
+
+	local showKeybindsOn = true
+	local showWatermarkOn = true
+
+	local fastShotOn = false
+	local fastShotRate = 800
+
+	local teleporterOn = false
+	local lastTeleportTick = 0
+	local teleportDistance = 50000
+
+	local walkSpeed, fightSpeed = 16, 50
+	local fightConnection = nil
+	local bodyGyro, bodyVelocity = nil, nil
+
+	local keybinds = {
+		randomTp = Enum.KeyCode.Q,
+		autoTp = Enum.KeyCode.E,
+		orbit = Enum.KeyCode.R,
+		fight = Enum.KeyCode.F,
+		noclip = Enum.KeyCode.T,
+		esp = Enum.KeyCode.Y
+	}
+	local listeningKey = nil
+
+	local function trackConn(conn)
+		if conn and getgenv and getgenv().AntiRivalConnectionList then
+			table.insert(getgenv().AntiRivalConnectionList, conn)
+		end
+		return conn
+	end
+
+	local function getActiveCamera()
+		return Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
+	end
+
+	local function getSafeParts()
+		local character = player.Character
+		if not character then return nil, nil end
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local rootPart = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso") or character:FindFirstChild("Head")
+		return humanoid, rootPart
+	end
+
+	local function setToggle(button, enabled, text)
+		if not button then return end
+		button.Text = text .. (enabled and ": ON" or ": OFF")
+		button.BackgroundColor3 = enabled and Color3.fromRGB(35, 75, 50) or Color3.fromRGB(70, 30, 30)
+		button.BorderColor3 = enabled and Color3.fromRGB(50, 110, 70) or Color3.fromRGB(100, 45, 45)
+	end
+
+	local toggleFight = nil
+	local toggleNoclip = nil
+	local toggleEsp = nil
+
+	local gamma = Lighting:FindFirstChild("AntiRivalGamma") or Instance.new("ColorCorrectionEffect")
+	gamma.Name = "AntiRivalGamma"
+	gamma.Parent = Lighting
+
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "AntiRival"
+	gui.ResetOnSpawn = false
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Parent = player:WaitForChild("PlayerGui")
+
+	local keybindGui = Instance.new("ScreenGui")
+	keybindGui.Name = "AntiRivalKeybinds"
+	keybindGui.ResetOnSpawn = false
+	keybindGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	keybindGui.Parent = player:WaitForChild("PlayerGui")
+
+	local watermarkGui = Instance.new("ScreenGui")
+	watermarkGui.Name = "AntiRivalWatermark"
+	watermarkGui.ResetOnSpawn = false
+	watermarkGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	watermarkGui.Parent = player:WaitForChild("PlayerGui")
+
+	local watermarkFrame = Instance.new("Frame")
+	watermarkFrame.Name = "WatermarkFrame"
+	watermarkFrame.Size = UDim2.new(0, 0, 0, 26)
+	watermarkFrame.AutomaticSize = Enum.AutomaticSize.X
+	watermarkFrame.Position = UDim2.new(0, 15, 0, 120)
+	watermarkFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+	watermarkFrame.BackgroundTransparency = 0.2
+	watermarkFrame.BorderColor3 = Color3.fromRGB(45, 45, 60)
+	watermarkFrame.BorderSizePixel = 1
+	watermarkFrame.Active = true
+	watermarkFrame.Draggable = true
+	watermarkFrame.Parent = watermarkGui
+
+	local wmCorner = Instance.new("UICorner")
+	wmCorner.CornerRadius = UDim.new(0, 4)
+	wmCorner.Parent = watermarkFrame
+
+	local wmLayout = Instance.new("UIListLayout")
+	wmLayout.FillDirection = Enum.FillDirection.Horizontal
+	wmLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	wmLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	wmLayout.Padding = UDim.new(0, 6)
+	wmLayout.Parent = watermarkFrame
+
+	local wmPadding = Instance.new("UIPadding")
+	wmPadding.PaddingLeft = UDim.new(0, 22)
+	wmPadding.PaddingRight = UDim.new(0, 22)
+	wmPadding.PaddingTop = UDim.new(0, 10)
+	wmPadding.PaddingBottom = UDim.new(0, 10)
+	wmPadding.Parent = watermarkFrame
+
+	local wmLogo = Instance.new("ImageLabel")
+	wmLogo.Name = "LogoImage"
+	wmLogo.LayoutOrder = 1
+	wmLogo.Size = UDim2.new(0, 20, 0, 20)
+	wmLogo.BackgroundTransparency = 1
+	wmLogo.Image = "rbxassetid://91419475783196"
+	wmLogo.Parent = watermarkFrame
+
+	local watermarkLabel = Instance.new("TextLabel")
+	watermarkLabel.Name = "TextInfo"
+	watermarkLabel.LayoutOrder = 2
+	watermarkLabel.Size = UDim2.new(0, 0, 1, 0)
+	watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
+	watermarkLabel.BackgroundTransparency = 1
+	watermarkLabel.RichText = true
+	watermarkLabel.Text = '| Anti rival | Rivals | V1.8.2-FREE | ' .. player.Name .. ' | <font color="rgb(100,220,100)">60 FPS</font>'
+	watermarkLabel.TextColor3 = Color3.fromRGB(220, 220, 230)
+	watermarkLabel.TextSize = 11
+	watermarkLabel.Font = Enum.Font.Code
+	watermarkLabel.TextXAlignment = Enum.TextXAlignment.Left
+	watermarkLabel.TextYAlignment = Enum.TextYAlignment.Center
+	watermarkLabel.Parent = watermarkFrame
+
+	local lastFpsUpdate = 0
+	local frameCount = 0
+	local currentFps = 60
+	trackConn(RunService.RenderStepped:Connect(function(dt)
+		frameCount = frameCount + 1
+		local now = os.clock()
+		if now - lastFpsUpdate >= 0.5 then
+			currentFps = math.floor((frameCount / (now - lastFpsUpdate)) + 0.5)
+			frameCount = 0
+			lastFpsUpdate = now
+			if showWatermarkOn then
+				watermarkLabel.Text = '| Anti rival | Rivals | V1.8.2-FREE | ' .. player.Name .. ' | <font color="rgb(100,220,100)">' .. currentFps .. ' FPS</font>'
+			end
+		end
+	end))
+
+	local kbFrame = Instance.new("Frame")
+	kbFrame.Name = "KeybindsMainFrame"
+	kbFrame.Size = UDim2.fromOffset(270, 245)
+	kbFrame.Position = UDim2.new(0, 15, 0, 160)
+	kbFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+	kbFrame.BackgroundTransparency = 0.2
+	kbFrame.BorderColor3 = Color3.fromRGB(45, 45, 60)
+	kbFrame.BorderSizePixel = 1
+	kbFrame.Active = true
+	kbFrame.Draggable = true
+	kbFrame.Parent = keybindGui
+
+	local kbCorner = Instance.new("UICorner")
+	kbCorner.CornerRadius = UDim.new(0, 4)
+	kbCorner.Parent = kbFrame
+
+	local kbTitle = Instance.new("TextLabel")
+	kbTitle.Size = UDim2.new(1, 0, 0, 28)
+	kbTitle.Position = UDim2.fromOffset(10, 0)
+	kbTitle.BackgroundTransparency = 1
+	kbTitle.RichText = true
+	kbTitle.Text = '<font color="rgb(255,0,0)">Keybinds (V1.8.2 FREE Build)</font>'
+	kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
+	kbTitle.TextSize = 13
+	kbTitle.Font = Enum.Font.Code
+	kbTitle.TextXAlignment = Enum.TextXAlignment.Left
+	kbTitle.Parent = kbFrame
+
+	local kbListLayout = Instance.new("UIListLayout")
+	kbListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	kbListLayout.Padding = UDim.new(0, 2)
+	kbListLayout.Parent = kbFrame
+
+	local kbPadding = Instance.new("UIPadding")
+	kbPadding.PaddingTop = UDim.new(0, 32)
+	kbPadding.PaddingLeft = UDim.new(0, 10)
+	kbPadding.PaddingRight = UDim.new(0, 10)
+	kbPadding.Parent = kbFrame
+
+	local function createKbRow(name, keyText, featureText, modeText, order)
+		local row = Instance.new("Frame")
+		row.Name = name
+		row.Size = UDim2.new(1, 0, 0, 24)
+		row.BackgroundTransparency = 1
+		row.LayoutOrder = order
+		row.Parent = kbFrame
+
+		local kLbl = Instance.new("TextLabel")
+		kLbl.Name = "Key"
+		kLbl.Size = UDim2.new(0, 100, 1, 0)
+		kLbl.BackgroundTransparency = 1
+		kLbl.Text = "[" .. keyText .. "]"
+		kLbl.TextColor3 = Color3.fromRGB(100, 180, 255)
+		kLbl.TextSize = 11
+		kLbl.Font = Enum.Font.Code
+		kLbl.TextXAlignment = Enum.TextXAlignment.Left
+		kLbl.Parent = row
+
+		local fLbl = Instance.new("TextLabel")
+		fLbl.Name = "Feature"
+		fLbl.Size = UDim2.new(1, -100, 1, 0)
+		fLbl.Position = UDim2.new(0, 100, 0, 0)
+		fLbl.BackgroundTransparency = 1
+		fLbl.Text = featureText
+		fLbl.TextColor3 = Color3.fromRGB(180, 180, 190)
+		fLbl.TextSize = 11
+		fLbl.Font = Enum.Font.Code
+		fLbl.TextXAlignment = Enum.TextXAlignment.Left
+		fLbl.Parent = row
+
+		return kLbl
+	end
+
+	local kbRowRandomTp = createKbRow("RowRandomTp", "Q", "Random TP", "TOGGLE", 1)
+	local kbRowAutoTp   = createKbRow("RowAutoTp", "E", "Auto 50k TP", "TOGGLE", 2)
+	local kbRowOrbit    = createKbRow("RowOrbit", "R", "Orbit Mode", "TOGGLE", 3)
+	local kbRowFight    = createKbRow("RowFight", "F", "Fight Mode", "TOGGLE", 4)
+	local kbRowNoclip   = createKbRow("RowNoclip", "T", "Noclip", "TOGGLE", 5)
+	local kbRowEsp      = createKbRow("RowEsp", "Y", "Player ESP", "TOGGLE", 6)
+	local kbRowMenu     = createKbRow("RowMenu", "RSHIFT", "UI Toggle", "TOGGLE", 7)
+
+	local function updateKeybindUI(keyName, newKeyName)
+		if keyName == "randomTp" then kbRowRandomTp.Text = "[" .. newKeyName .. "]"
+		elseif keyName == "autoTp" then kbRowAutoTp.Text = "[" .. newKeyName .. "]"
+		elseif keyName == "orbit" then kbRowOrbit.Text = "[" .. newKeyName .. "]"
+		elseif keyName == "fight" then kbRowFight.Text = "[" .. newKeyName .. "]"
+		elseif keyName == "noclip" then kbRowNoclip.Text = "[" .. newKeyName .. "]"
+		elseif keyName == "esp" then kbRowEsp.Text = "[" .. newKeyName .. "]"
+		end
+	end
+
+	local fightControlGui = Instance.new("ScreenGui")
+	fightControlGui.Name = "AntiRivalFightControls"
+	fightControlGui.ResetOnSpawn = false
+	fightControlGui.Enabled = false
+	fightControlGui.Parent = player:WaitForChild("PlayerGui")
+
+	local upButton = Instance.new("TextButton")
+	upButton.Name = "UpButton"
+	upButton.Size = UDim2.fromOffset(60, 60)
+	upButton.Position = UDim2.new(0.8, 0, 0.5, 0)
+	upButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+	upButton.BackgroundTransparency = 0.3
+	upButton.BorderColor3 = Color3.fromRGB(80, 150, 255)
+	upButton.BorderSizePixel = 2
+	upButton.Text = "UP"
+	upButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	upButton.TextSize = 16
+	upButton.Font = Enum.Font.Code
+	upButton.Active = true
+	upButton.Draggable = true
+	upButton.Parent = fightControlGui
+
+	local downButton = Instance.new("TextButton")
+	downButton.Name = "DownButton"
+	downButton.Size = UDim2.fromOffset(60, 60)
+	downButton.Position = UDim2.new(0.8, 0, 0.65, 0)
+	downButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+	downButton.BackgroundTransparency = 0.3
+	downButton.BorderColor3 = Color3.fromRGB(80, 150, 255)
+	downButton.BorderSizePixel = 2
+	downButton.Text = "DOWN"
+	downButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	downButton.TextSize = 14
+	downButton.Font = Enum.Font.Code
+	downButton.Active = true
+	downButton.Draggable = true
+	downButton.Parent = fightControlGui
+
+	local fightUpActive, fightDownActive = false, false
+
+	trackConn(upButton.MouseButton1Down:Connect(function() fightUpActive = true end))
+	trackConn(upButton.MouseButton1Up:Connect(function() fightUpActive = false end))
+
+	trackConn(downButton.MouseButton1Down:Connect(function() fightDownActive = true end))
+	trackConn(downButton.MouseButton1Up:Connect(function() fightDownActive = false end))
+
+	local window = Instance.new("Frame")
+	window.AnchorPoint = Vector2.new(0.5, 0.5)
+	window.Position = UDim2.new(0.5, 0, 0.5, 0)
+	window.Size = UDim2.fromOffset(480, 560)
+	window.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+	window.BorderColor3 = Color3.fromRGB(38, 38, 42)
+	window.BorderSizePixel = 1
+	window.Visible = true
+	window.Parent = gui
+
+	local actualScale = Instance.new("UIScale")
+	actualScale.Scale = uiScaleFactor
+	actualScale.Parent = window
+
+	local function updateMouseState(isVisible)
+		pcall(function()
+			if not isMobile then
+				if isVisible then
+					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+					UserInputService.MouseIconEnabled = true
+				else
+					UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+					UserInputService.MouseIconEnabled = false
+				end
+			end
+		end)
+	end
+
+	updateMouseState(true)
+
+	trackConn(RunService.RenderStepped:Connect(function()
+		if window.Visible and not isMobile then
+			if UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default or UserInputService.MouseIconEnabled == false then
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				UserInputService.MouseIconEnabled = true
+			end
+		end
+	end))
+
+	local openGuiBtn = Instance.new("TextButton")
+	openGuiBtn.Name = "AntiRivalOpenButton"
+	openGuiBtn.Size = UDim2.fromOffset(130, 45)
+	openGuiBtn.Position = UDim2.new(0, 10, 0.35, 0)
+	openGuiBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+	openGuiBtn.BorderColor3 = Color3.fromRGB(80, 150, 255)
+	openGuiBtn.BorderSizePixel = 2
+	openGuiBtn.Text = "UI TOGGLE"
+	openGuiBtn.TextColor3 = Color3.fromRGB(80, 150, 255)
+	openGuiBtn.TextSize = 14
+	openGuiBtn.Font = Enum.Font.Code
+	openGuiBtn.Active = true
+	openGuiBtn.Draggable = true
+	openGuiBtn.Parent = gui
+
+	openGuiBtn.MouseButton1Click:Connect(function()
+		window.Visible = not window.Visible
+		updateMouseState(window.Visible)
+	end)
+
+	trackConn(UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if input.KeyCode == Enum.KeyCode.RightShift then
+			window.Visible = not window.Visible
+			updateMouseState(window.Visible)
+		end
+	end))
+
+	local innerBorder = Instance.new("Frame")
+	innerBorder.Size = UDim2.new(1, -2, 1, -2)
+	innerBorder.Position = UDim2.fromOffset(1, 1)
+	innerBorder.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+	innerBorder.BorderColor3 = Color3.fromRGB(22, 22, 26)
+	innerBorder.BorderSizePixel = 1
+	innerBorder.Parent = window
+
+	local header = Instance.new("Frame")
+	header.Size = UDim2.new(1, 0, 0, 28)
+	header.Position = UDim2.fromOffset(0, 0)
+	header.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+	header.BorderSizePixel = 0
+	header.Parent = innerBorder
+
+	local dragging = false
+	local dragInput, dragStart, startPos
+
+	header.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = window.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+
+	header.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			dragInput = input
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and input == dragInput and dragging then
+			local delta = input.Position - dragStart
+			window.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+
+	local title = Instance.new("TextLabel")
+	title.AnchorPoint = Vector2.new(0.5, 0.5)
+	title.Position = UDim2.new(0.5, -45, 0.5, 0)
+	title.Size = UDim2.fromOffset(260, 20)
+	title.BackgroundTransparency = 1
+	title.Text = "Anti-rival V1.8.2-FREE Build"
+	title.TextColor3 = Color3.fromRGB(255, 0, 0)
+	title.TextSize = 11
+	title.Font = Enum.Font.Code
+	title.TextXAlignment = Enum.TextXAlignment.Center
+	title.Parent = header
+
+	local discordBtn = Instance.new("TextButton")
+	discordBtn.AnchorPoint = Vector2.new(1, 0.5)
+	discordBtn.Position = UDim2.new(1, -8, 0.5, 0)
+	discordBtn.Size = UDim2.fromOffset(120, 20)
+	discordBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+	discordBtn.BorderColor3 = Color3.fromRGB(50, 50, 70)
+	discordBtn.BorderSizePixel = 1
+	discordBtn.Text = "Discord: Copy"
+	discordBtn.TextColor3 = Color3.fromRGB(130, 170, 255)
+	discordBtn.TextSize = 10
+	discordBtn.Font = Enum.Font.Code
+	discordBtn.Parent = header
+
+	discordBtn.MouseButton1Click:Connect(function()
+		pcall(function()
+			if setclipboard then
+				setclipboard("https://discord.gg/WBkDd4AGJ")
+				discordBtn.Text = "Copied!"
+				task.delay(1.5, function()
+					if discordBtn and discordBtn.Parent then
+						discordBtn.Text = "Discord: Copy"
+					end
+				end)
+			end
+		end)
+	end)
+
+	local tabs = Instance.new("ScrollingFrame")
+	tabs.Size = UDim2.new(1, -16, 0, 52)
+	tabs.Position = UDim2.fromOffset(8, 30)
+	tabs.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+	tabs.BorderSizePixel = 0
+	tabs.CanvasSize = UDim2.new(0, 0, 0, 0)
+	tabs.ScrollBarThickness = 0
+	tabs.Parent = innerBorder
+
+	local tabsLayout = Instance.new("UIGridLayout")
+	tabsLayout.CellSize = UDim2.fromOffset(108, 22)
+	tabsLayout.CellPadding = UDim2.fromOffset(4, 4)
+	tabsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	tabsLayout.Parent = tabs
+
+	local content = Instance.new("Frame")
+	content.Size = UDim2.new(1, -16, 1, -92)
+	content.Position = UDim2.fromOffset(8, 86)
+	content.BackgroundColor3 = Color3.fromRGB(12, 12, 14)
+	content.BorderColor3 = Color3.fromRGB(30, 30, 34)
+	content.BorderSizePixel = 1
+	content.Parent = innerBorder
+
+	local pages, tabButtons = {}, {}
+
+	local function page(name)
+		local frame = Instance.new("ScrollingFrame")
+		frame.Name = name
+		frame.Size = UDim2.fromScale(1, 1)
+		frame.BackgroundTransparency = 1
+		frame.CanvasSize = UDim2.new(0, 0, 2.5, 0)
+		frame.ScrollBarThickness = 4
+		frame.Visible = false
+		frame.Parent = content
+		pages[name] = frame
+		return frame
+	end
+
+	local mainPage = page("main")
+	local worldPage = page("world")
+	local espPage = page("esp")
+	local visualsPage = page("visuals")
+	local characterPage = page("character")
+	local miscPage = page("misc")
+	local settingPage = page("settings")
+
+	local function showPage(name)
+		for pageName, frame in pairs(pages) do
+			frame.Visible = (pageName == name)
+		end
+		for tabName, button in pairs(tabButtons) do
+			if tabName == name then
+				button.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+				button.TextColor3 = Color3.fromRGB(255, 255, 255)
+				button.BorderColor3 = Color3.fromRGB(50, 50, 58)
+			else
+				button.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
+				button.TextColor3 = Color3.fromRGB(140, 140, 145)
+				button.BorderColor3 = Color3.fromRGB(28, 28, 32)
+			end
+		end
+	end
+
+	local function tab(text, name, order)
+		local button = Instance.new("TextButton")
+		button.LayoutOrder = order
+		button.BackgroundColor3 = Color3.fromRGB(16, 16, 18)
+		button.BorderColor3 = Color3.fromRGB(28, 28, 32)
+		button.BorderSizePixel = 1
+		button.Text = text
+		button.TextColor3 = Color3.fromRGB(140, 140, 145)
+		button.TextSize = 10
+		button.Font = Enum.Font.Code
+		button.Parent = tabs
+		button.MouseButton1Click:Connect(function() showPage(name) end)
+		tabButtons[name] = button
+	end
+
+	tab("main", "main", 1)
+	tab("world", "world", 2)
+	tab("esp", "esp", 3)
+	tab("visuals", "visuals", 4)
+	tab("character", "character", 5)
+	tab("misc", "misc", 6)
+	tab("settings", "settings", 7)
+
+	local function heading(parent, text)
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.new(1, -20, 0, 24)
+		label.Position = UDim2.fromOffset(10, 6)
+		label.BackgroundTransparency = 1
+		label.Text = text
+		label.TextColor3 = Color3.fromRGB(200, 200, 205)
+		label.TextSize = 12
+		label.Font = Enum.Font.Code
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.Parent = parent
+	end
+
+	local function textbox(parent, text, value, y)
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromOffset(200, 24)
+		label.Position = UDim2.fromOffset(14, y)
+		label.BackgroundTransparency = 1
+		label.Text = text
+		label.TextColor3 = Color3.fromRGB(170, 170, 175)
+		label.TextSize = 11
+		label.Font = Enum.Font.Code
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.Parent = parent
+
+		local box = Instance.new("TextBox")
+		box.Size = UDim2.fromOffset(80, 22)
+		box.Position = UDim2.fromOffset(220, y)
+		box.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+		box.BorderColor3 = Color3.fromRGB(40, 40, 46)
+		box.BorderSizePixel = 1
+		box.Text = tostring(value)
+		box.ClearTextOnFocus = false
+		box.TextColor3 = Color3.new(1, 1, 1)
+		box.TextSize = 11
+		box.Font = Enum.Font.Code
+		box.Parent = parent
+		return box
+	end
+
+	local function toggle(parent, text, y)
+		local button = Instance.new("TextButton")
+		button.Size = UDim2.fromOffset(286, 24)
+		button.Position = UDim2.fromOffset(14, y)
+		button.BackgroundColor3 = Color3.fromRGB(70, 30, 30)
+		button.BorderColor3 = Color3.fromRGB(100, 45, 45)
+		button.BorderSizePixel = 1
+		button.Text = text .. ": OFF"
+		button.TextColor3 = Color3.new(0.9, 0.9, 0.9)
+		button.TextSize = 11
+		button.Font = Enum.Font.Code
+		button.Parent = parent
+		return button
+	end
+
+	heading(mainPage, "movement / core controls")
+	local walkBox = textbox(mainPage, "walk speed  (1–1000)", walkSpeed, 40)
+	local walkButton = toggle(mainPage, "walk speed", 68)
+	local fightBox = textbox(mainPage, "fight speed  (1–1000)", fightSpeed, 106)
+	local fightButton = toggle(mainPage, "fight mode", 134)
+
+	heading(worldPage, "world & combat perks")
+	local ragebotButton = toggle(worldPage, "ragebot (auto lock snap)", 40)
+	local auraButton = toggle(worldPage, "aura (auto hit nearby)", 70)
+	local triggerBotButton = toggle(worldPage, "trigger bot (auto shoot target)", 100)
+	local wallbangButton = toggle(worldPage, "projectile wallbang", 130)
+	local godModeButton = toggle(worldPage, "god mode (forcefield)", 160)
+	local forceThirdPersonButton = toggle(worldPage, "force 3rd person (rivals)", 190)
+
+	heading(espPage, "player esp & information")
+	local espButton = toggle(espPage, "player esp", 40)
+	local namesButton = toggle(espPage, "player names", 70)
+	local healthButton = toggle(espPage, "player health text", 100)
+
+	heading(visualsPage, "position manipulation & extreme utility")
+	local orbitButton = toggle(visualsPage, "orbit position mode", 40)
+	local voidSpanButton = toggle(visualsPage, "void span mode", 70)
+	local teleporterBox = textbox(visualsPage, "teleport distance", teleportDistance, 106)
+	local teleporterButton = toggle(visualsPage, "auto 50k tp (every 0.1s)", 134)
+
+	local randomTpButton = Instance.new("TextButton")
+	randomTpButton.Size = UDim2.fromOffset(286, 28)
+	randomTpButton.Position = UDim2.fromOffset(14, 168)
+	randomTpButton.BackgroundColor3 = Color3.fromRGB(40, 50, 80)
+	randomTpButton.BorderColor3 = Color3.fromRGB(70, 90, 130)
+	randomTpButton.BorderSizePixel = 1
+	randomTpButton.Text = "RANDOM PLAYER HEAD TP (5 Studs)"
+	randomTpButton.TextColor3 = Color3.fromRGB(220, 230, 255)
+	randomTpButton.TextSize = 10
+	randomTpButton.Font = Enum.Font.Code
+	randomTpButton.Parent = visualsPage
+
+	heading(characterPage, "character capabilities")
+	local fastShotBox = textbox(characterPage, "fast shot rate (1–1000)", fastShotRate, 40)
+	local fastShotButton = toggle(characterPage, "fast shot (Engine Bypass)", 68)
+	local infiniteJumpButton = toggle(characterPage, "infinite jump", 106)
+
+	heading(miscPage, "misc / cosmetic settings")
+	local noclipButton = toggle(miscPage, "noclip", 40)
+
+	heading(settingPage, "settings & UI manager")
+
+	local showKeybindsButton = toggle(settingPage, "show keybinds", 40)
+	showKeybindsButton.BackgroundColor3 = Color3.fromRGB(35, 75, 50)
+	showKeybindsButton.BorderColor3 = Color3.fromRGB(50, 110, 70)
+	showKeybindsButton.Text = "show keybinds: ON"
+
+	showKeybindsButton.MouseButton1Click:Connect(function()
+		showKeybindsOn = not showKeybindsOn
+		setToggle(showKeybindsButton, showKeybindsOn, "show keybinds")
+		kbFrame.Visible = showKeybindsOn
+	end)
+
+	local showWatermarkButton = toggle(settingPage, "show watermark", 70)
+	showWatermarkButton.BackgroundColor3 = Color3.fromRGB(35, 75, 50)
+	showWatermarkButton.BorderColor3 = Color3.fromRGB(50, 110, 70)
+	showWatermarkButton.Text = "show watermark: ON"
+
+	showWatermarkButton.MouseButton1Click:Connect(function()
+		showWatermarkOn = not showWatermarkOn
+		setToggle(showWatermarkButton, showWatermarkOn, "show watermark")
+		watermarkFrame.Visible = showWatermarkOn
+	end)
+
+	local function createKeybindRow(parent, labelText, keyName, yPos)
+		local lbl = Instance.new("TextLabel")
+		lbl.Size = UDim2.fromOffset(170, 24)
+		lbl.Position = UDim2.fromOffset(14, yPos)
+		lbl.BackgroundTransparency = 1
+		lbl.Text = labelText
+		lbl.TextColor3 = Color3.fromRGB(180, 180, 185)
+		lbl.TextSize = 11
+		lbl.Font = Enum.Font.Code
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.Parent = parent
+
+		local bindBtn = Instance.new("TextButton")
+		bindBtn.Size = UDim2.fromOffset(108, 24)
+		bindBtn.Position = UDim2.fromOffset(192, yPos)
+		bindBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+		bindBtn.BorderColor3 = Color3.fromRGB(50, 50, 65)
+		bindBtn.BorderSizePixel = 1
+		bindBtn.Text = tostring(keybinds[keyName].Name)
+		bindBtn.TextColor3 = Color3.fromRGB(100, 200, 255)
+		bindBtn.TextSize = 10
+		bindBtn.Font = Enum.Font.Code
+		bindBtn.Parent = parent
+
+		bindBtn.MouseButton1Click:Connect(function()
+			listeningKey = keyName
+			bindBtn.Text = "[ Press Key... ]"
+			bindBtn.TextColor3 = Color3.fromRGB(255, 200, 100)
+		end)
+
+		return bindBtn
+	end
+
+	local bindRandomTpBtn = createKeybindRow(settingPage, "Key: Random Head TP", "randomTp", 105)
+	local bindAutoTpBtn   = createKeybindRow(settingPage, "Key: Auto 50k TP", "autoTp", 135)
+	local bindOrbitBtn    = createKeybindRow(settingPage, "Key: Orbit Mode", "orbit", 165)
+	local bindFightBtn    = createKeybindRow(settingPage, "Key: Fight Mode Toggle", "fight", 195)
+	local bindNoclipBtn   = createKeybindRow(settingPage, "Key: Noclip", "noclip", 225)
+	local bindEspBtn      = createKeybindRow(settingPage, "Key: Player ESP", "esp", 255)
+
+	local function handleInputBegan(input, gameProcessed)
+		if input.UserInputType == Enum.UserInputType.Keyboard then
+			if listeningKey then
+				if input.KeyCode ~= Enum.KeyCode.Unknown then
+					keybinds[listeningKey] = input.KeyCode
+					local keyNameStr = tostring(input.KeyCode.Name)
+					updateKeybindUI(listeningKey, keyNameStr)
+					
+					if listeningKey == "randomTp" then
+						bindRandomTpBtn.Text = keyNameStr
+						bindRandomTpBtn.TextColor3 = Color3.fromRGB(100, 200, 255)
+					elseif listeningKey == "autoTp" then
+						bindAutoTpBtn.Text = keyNameStr
+						bindAutoTpBtn.TextColor3 = Color3.fromRGB(100, 200, 255)
+					elseif listeningKey == "orbit" then
+						bindOrbitBtn.Text = keyNameStr
+						bindOrbitBtn.TextColor3 = Color3.fromRGB(100, 200, 255)
+					elseif listeningKey == "fight" then
+						bindFightBtn.Text = keyNameStr
+						bindFightBtn.TextColor3 = Color3.fromRGB(100, 200, 255)
+					elseif listeningKey == "noclip" then
+						bindNoclipBtn.Text = keyNameStr
+						bindNoclipBtn.TextColor3 = Color3.fromRGB(100, 200, 255)
+					elseif listeningKey == "esp" then
+						bindEspBtn.Text = keyNameStr
+						bindEspBtn.TextColor3 = Color3.fromRGB(100, 200, 255)
+					end
+				end
+				listeningKey = nil
+			elseif not gameProcessed then
+				if input.KeyCode == keybinds.randomTp then
+					pcall(function()
+						local _, myRoot = getSafeParts()
+						if not myRoot then return end
+
+						local validTargets = {}
+						for _, p in ipairs(Players:GetPlayers()) do
+							if p ~= player then
+								local char = p.Character
+								if char then
+									local hum = char:FindFirstChildOfClass("Humanoid")
+									local head = char:FindFirstChild("Head")
+									if hum and hum.Health > 0 and head then
+										table.insert(validTargets, head)
+									end
+								end
+							end
+						end
+
+						if #validTargets > 0 then
+							local randomHead = validTargets[math.random(1, #validTargets)]
+							local randomAngle = math.random() * math.pi * 2
+							local randomHeightOffset = (math.random() - 0.5) * 4
+							local offsetDir = Vector3.new(math.cos(randomAngle), 0, math.sin(randomAngle))
+							local targetCFrame = CFrame.new(randomHead.Position + (offsetDir * 5) + Vector3.new(0, randomHeightOffset, 0), randomHead.Position)
+							myRoot.CFrame = targetCFrame
+						end
+					end)
+				elseif input.KeyCode == keybinds.autoTp then
+					teleporterOn = not teleporterOn
+					setToggle(teleporterButton, teleporterOn, "auto 50k tp (every 0.1s)")
+				elseif input.KeyCode == keybinds.orbit then
+					orbitOn = not orbitOn
+					if orbitOn then
+						voidSpanOn = false
+						setToggle(voidSpanButton, false, "void span mode")
+					end
+					setToggle(orbitButton, orbitOn, "orbit position mode")
+				elseif input.KeyCode == keybinds.fight then
+					if toggleFight then
+						toggleFight(not fightOn)
+					end
+				elseif input.KeyCode == keybinds.noclip then
+					if toggleNoclip then
+						toggleNoclip(not noclipOn)
+					end
+				elseif input.KeyCode == keybinds.esp then
+					if toggleEsp then
+						toggleEsp(not espOn)
+					end
+				end
+			end
+		end
+	end
+
+	trackConn(UserInputService.InputBegan:Connect(handleInputBegan))
+
+	trackConn(UserInputService.JumpRequest:Connect(function()
+		if infiniteJumpOn then
+			pcall(function()
+				local hum, _ = getSafeParts()
+				if hum then
+					hum:ChangeState(Enum.HumanoidStateType.Jumping)
+				end
+			end)
+		end
+	end))
+
+	trackConn(RunService.RenderStepped:Connect(function()
+		if infiniteJumpOn then
+			pcall(function()
+				local hum, _ = getSafeParts()
+				if hum and hum:GetState() == Enum.HumanoidStateType.Freefall then
+					if UserInputService:IsKeyDown(Enum.KeyCode.Space) or (isMobile and hum.Jump) then
+						hum:ChangeState(Enum.HumanoidStateType.Jumping)
+					end
+				end
+			end)
+		end
+	end))
+
+	local unloadBtn = Instance.new("TextButton")
+	unloadBtn.Size = UDim2.fromOffset(286, 28)
+	unloadBtn.Position = UDim2.fromOffset(14, 290)
+	unloadBtn.BackgroundColor3 = Color3.fromRGB(110, 30, 30)
+	unloadBtn.BorderColor3 = Color3.fromRGB(150, 50, 50)
+	unloadBtn.BorderSizePixel = 1
+	unloadBtn.Text = "UNLOAD SCRIPT"
+	unloadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	unloadBtn.TextSize = 11
+	unloadBtn.Font = Enum.Font.Code
+	unloadBtn.Parent = settingPage
+
+	unloadBtn.MouseButton1Click:Connect(function()
+		pcall(function()
+			if getgenv and getgenv().AntiRivalConnectionList then
+				for _, conn in ipairs(getgenv().AntiRivalConnectionList) do
+					if typeof(conn) == "RBXScriptConnection" then
+						pcall(function() conn:Disconnect() end)
+					end
+				end
+			end
+		end)
+		pcall(function() if gamma then gamma:Destroy() end end)
+		pcall(function() if gui then gui:Destroy() end end)
+		pcall(function() if keybindGui then keybindGui:Destroy() end end)
+		pcall(function() if watermarkGui then watermarkGui:Destroy() end end)
+		pcall(function() if fightControlGui then fightControlGui:Destroy() end end)
+	end)
+
+	local function executeFight(state)
+		fightOn = state
+		setToggle(fightButton, fightOn, "fight mode")
+		if isMobile then
+			fightControlGui.Enabled = fightOn
+		end
+		
+		local hum, root = getSafeParts()
+
+		if fightOn then
+			if not root or not hum then
+				fightOn = false
+				setToggle(fightButton, false, "fight mode")
+				if isMobile then fightControlGui.Enabled = false end
+				return
+			end
+
+			bodyGyro = Instance.new("BodyGyro")
+			bodyGyro.P = 9e4
+			bodyGyro.MaxTorque = Vector3.new(9e4, 9e4, 9e4)
+			bodyGyro.CFrame = root.CFrame
+			bodyGyro.Parent = root
+
+			bodyVelocity = Instance.new("BodyVelocity")
+			bodyVelocity.Velocity = Vector3.zero
+			bodyVelocity.MaxForce = Vector3.new(9e4, 9e4, 9e4)
+			bodyVelocity.Parent = root
+
+			hum.PlatformStand = true
+
+			fightConnection = RunService.RenderStepped:Connect(function()
+				local currentCam = getActiveCamera()
+				local currentHum, currentRoot = getSafeParts()
+				if not fightOn or not currentRoot or not currentHum or currentHum.Health <= 0 then
+					if toggleFight then toggleFight(false) end
+					return
+				end
+
+				if bodyGyro then bodyGyro.CFrame = currentCam.CFrame end
+				local moveDir = Vector3.zero
+				
+				if isMobile then
+					if currentHum.MoveDirection.Magnitude > 0 then
+						moveDir = currentHum.MoveDirection.Unit * fightSpeed
+					end
+					if fightUpActive then
+						moveDir = moveDir + Vector3.new(0, fightSpeed, 0)
+					elseif fightDownActive then
+						moveDir = moveDir - Vector3.new(0, fightSpeed, 0)
+					end
+				else
+					if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + currentCam.CFrame.LookVector end
+					if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - currentCam.CFrame.LookVector end
+					if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - currentCam.CFrame.RightVector end
+					if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + currentCam.CFrame.RightVector end
+					if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+					if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+						moveDir = moveDir - Vector3.new(0, 1, 0)
+					end
+				end
+
+				if bodyVelocity then
+					if isMobile then
+						if moveDir.Magnitude > 0 then
+							bodyVelocity.Velocity = moveDir
+						else
+							bodyVelocity.Velocity = Vector3.zero
+						end
+					else
+						if moveDir.Magnitude > 0 then
+							bodyVelocity.Velocity = moveDir.Unit * fightSpeed
+						else
+							bodyVelocity.Velocity = Vector3.zero
+						end
+					end
+				end
+			end)
+			trackConn(fightConnection)
+		else
+			if fightConnection then
+				pcall(function() fightConnection:Disconnect() end)
+				fightConnection = nil
+			end
+			if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+			if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+
+			if hum then
+				hum.PlatformStand = false
+			end
+		end
+	end
+
+	toggleFight = executeFight
+
+	local function executeNoclip(state)
+		noclipOn = state
+		setToggle(noclipButton, noclipOn, "noclip")
+	end
+	toggleNoclip = executeNoclip
+
+	local function executeEsp(state)
+		espOn = state
+		setToggle(espButton, espOn, "player esp")
+	end
+	toggleEsp = executeEsp
+
+	local espCache = {}
+
+	local function removeEsp(p)
+		if espCache[p] then
+			if espCache[p].Highlight then espCache[p].Highlight:Destroy() end
+			if espCache[p].InfoBillboard then espCache[p].InfoBillboard:Destroy() end
+			espCache[p] = nil
+		end
+	end
+
+	local function updateEspForPlayer(p)
+		if p == player then return end
+		local char = p.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		
+		if (not espOn and not namesOn and not healthOn) or not char or not char:FindFirstChild("HumanoidRootPart") then
+			removeEsp(p)
+			return
+		end
+
+		local highlight = espCache[p] and espCache[p].Highlight
+		if espOn then
+			if not highlight or not highlight.Parent then
+				highlight = Instance.new("Highlight")
+				highlight.Name = "AntiRivalESP"
+				highlight.Adornee = char
+				highlight.FillColor = Color3.fromRGB(255, 50, 50)
+				highlight.FillTransparency = 0.5
+				highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+				highlight.OutlineTransparency = 0
+				highlight.Parent = char
+			else
+				highlight.Adornee = char
+			end
+		else
+			if highlight then highlight:Destroy() highlight = nil end
+		end
+
+		local head = char:FindFirstChild("Head")
+		local infoBillboard = espCache[p] and espCache[p].InfoBillboard
+
+		if (namesOn or healthOn) and head then
+			if not infoBillboard or not infoBillboard.Parent then
+				infoBillboard = Instance.new("BillboardGui")
+				infoBillboard.Name = "AntiRivalInfo"
+				infoBillboard.Size = UDim2.new(0, 200, 0, 60)
+				infoBillboard.StudsOffset = Vector3.new(0, 3.0, 0)
+				infoBillboard.AlwaysOnTop = true
+				infoBillboard.Adornee = head
+
+				local uiList = Instance.new("UIListLayout")
+				uiList.Name = "ListLayout"
+				uiList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+				uiList.VerticalAlignment = Enum.VerticalAlignment.Center
+				uiList.SortOrder = Enum.SortOrder.LayoutOrder
+				uiList.Padding = UDim.new(0, 4)
+				uiList.Parent = infoBillboard
+
+				local nameText = Instance.new("TextLabel")
+				nameText.Name = "NameText"
+				nameText.LayoutOrder = 1
+				nameText.Size = UDim2.new(1, 0, 0, 22)
+				nameText.BackgroundTransparency = 1
+				nameText.TextColor3 = Color3.fromRGB(255, 255, 255)
+				nameText.TextSize = 13
+				nameText.Font = Enum.Font.Code
+				nameText.TextStrokeTransparency = 0
+				nameText.Parent = infoBillboard
+
+				local healthText = Instance.new("TextLabel")
+				healthText.Name = "HealthText"
+				healthText.LayoutOrder = 2
+				healthText.Size = UDim2.new(1, 0, 0, 22)
+				healthText.BackgroundTransparency = 1
+				healthText.TextColor3 = Color3.fromRGB(80, 255, 120)
+				healthText.TextSize = 12
+				healthText.Font = Enum.Font.Code
+				healthText.TextStrokeTransparency = 0
+				healthText.Parent = infoBillboard
+
+				infoBillboard.Parent = head
+			else
+				infoBillboard.Adornee = head
+			end
+
+			local nameLabel = infoBillboard:FindFirstChild("NameText")
+			local healthLabel = infoBillboard:FindFirstChild("HealthText")
+
+			if nameLabel then
+				nameLabel.Visible = namesOn
+				nameLabel.Text = p.Name
+			end
+
+			if healthLabel then
+				healthLabel.Visible = (healthOn and hum ~= nil)
+				if hum then
+					healthLabel.Text = "HP: " .. math.floor(hum.Health) .. " / " .. math.floor(hum.MaxHealth)
+				end
+			end
+		else
+			if infoBillboard then infoBillboard:Destroy() infoBillboard = nil end
+		end
+
+		espCache[p] = { Highlight = highlight, InfoBillboard = infoBillboard }
+	end
+
+	trackConn(RunService.RenderStepped:Connect(function()
+		if not espOn and not namesOn and not healthOn then
+			for p, _ in pairs(espCache) do removeEsp(p) end
+			return
+		end
+		for _, p in ipairs(Players:GetPlayers()) do
+			updateEspForPlayer(p)
+		end
+	end))
+
+	trackConn(Players.PlayerRemoving:Connect(function(p) removeEsp(p) end))
+
+	randomTpButton.MouseButton1Click:Connect(function()
+		pcall(function()
+			local _, myRoot = getSafeParts()
+			if not myRoot then return end
+
+			local validTargets = {}
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= player then
+					local char = p.Character
+					if char then
+						local hum = char:FindFirstChildOfClass("Humanoid")
+						local head = char:FindFirstChild("Head")
+						if hum and hum.Health > 0 and head then
+							table.insert(validTargets, head)
+						end
+					end
+				end
+			end
+
+			if #validTargets > 0 then
+				local randomHead = validTargets[math.random(1, #validTargets)]
+				local randomAngle = math.random() * math.pi * 2
+				local randomHeightOffset = (math.random() - 0.5) * 4
+				local offsetDir = Vector3.new(math.cos(randomAngle), 0, math.sin(randomAngle))
+				local targetCFrame = CFrame.new(randomHead.Position + (offsetDir * 5) + Vector3.new(0, randomHeightOffset, 0), randomHead.Position)
+				myRoot.CFrame = targetCFrame
+				
+				randomTpButton.Text = "TP SUCCESS!"
+				task.delay(1.0, function()
+					if randomTpButton and randomTpButton.Parent then
+						randomTpButton.Text = "RANDOM PLAYER HEAD TP (5 Studs)"
+					end
+				end)
+			else
+				randomTpButton.Text = "NO TARGET FOUND!"
+				task.delay(1.0, function()
+					if randomTpButton and randomTpButton.Parent then
+						randomTpButton.Text = "RANDOM PLAYER HEAD TP (5 Studs)"
+					end
+				end)
+			end
+		end)
+	end)
+
+	trackConn(RunService.RenderStepped:Connect(function()
+		if not ragebotOn then return end
+		pcall(function()
+			local currentCam = getActiveCamera()
+			local bestTarget = nil
+			local shortestDist = math.huge
+
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= player then
+					local char = p.Character
+					if char then
+						local hum = char:FindFirstChildOfClass("Humanoid")
+						if hum and hum.Health > 0 then
+							local targetPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+							if targetPart then
+								local _, onScreen = currentCam:WorldToViewportPoint(targetPart.Position)
+								if onScreen then
+									local dist = (targetPart.Position - currentCam.CFrame.Position).Magnitude
+									if dist < shortestDist then
+										shortestDist = dist
+										bestTarget = targetPart
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+
+			if bestTarget then
+				currentCam.CFrame = CFrame.new(currentCam.CFrame.Position, bestTarget.Position)
+			end
+		end)
+	end))
+
+	trackConn(RunService.RenderStepped:Connect(function()
+		if not auraOn then return end
+		pcall(function()
+			local _, root = getSafeParts()
+			if not root then return end
+
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= player then
+					local char = p.Character
+					if char then
+						local hum = char:FindFirstChildOfClass("Humanoid")
+						local targetRoot = char:FindFirstChild("HumanoidRootPart")
+						if hum and hum.Health > 0 and targetRoot then
+							local dist = (targetRoot.Position - root.Position).Magnitude
+							if dist <= 45 then
+								pcall(function()
+									for _, tool in ipairs(player.Character:GetChildren()) do
+										if tool:IsA("Tool") then tool:Activate() end
+									end
+								end)
+							end
+						end
+					end
+				end
+			end
+		end)
+	end))
+
+	trackConn(RunService.RenderStepped:Connect(function()
+		if not triggerBotOn then return end
+		pcall(function()
+			local currentCam = getActiveCamera()
+			local mouseLocation = UserInputService:GetMouseLocation()
+			local unitRay = currentCam:ScreenPointToRay(mouseLocation.X, mouseLocation.Y)
+			
+			local raycastParams = RaycastParams.new()
+			raycastParams.FilterType = RaycastType.Include
+			local includeList = {}
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= player and p.Character then
+					table.insert(includeList, p.Character)
+				end
+			end
+			raycastParams.FilterDescendantsInstances = includeList
+			raycastParams.IgnoreWater = true
+			
+			local raycastResult = Workspace:Raycast(unitRay.Origin, unitRay.Direction * 10000, raycastParams)
+			if raycastResult and raycastResult.Instance then
+				local hitChar = raycastResult.Instance.Parent
+				local hum = hitChar:FindFirstChildOfClass("Humanoid")
+				local p = Players:GetPlayerFromCharacter(hitChar)
+				if hum and hum.Health > 0 and p and p ~= player then
+					pcall(function()
+						for _, tool in ipairs(player.Character:GetChildren()) do
+							if tool:IsA("Tool") then
+								tool:Activate()
+							end
+						end
+					end)
+				end
+			end
+		end)
+	end))
+
+	trackConn(RunService.RenderStepped:Connect(function()
+		if forceThirdPersonOn then
+			pcall(function()
+				player.CameraMode = Enum.CameraMode.Classic
+				if player.CameraMinZoomDistance < 10 then
+					player.CameraMinZoomDistance = 10
+				end
+				if player.CameraMaxZoomDistance < 10 then
+					player.CameraMaxZoomDistance = 100
+				end
+				local currentCam = getActiveCamera()
+				if currentCam then
+					if currentCam.CameraType == Enum.CameraType.Scriptable then
+						currentCam.CameraType = Enum.CameraType.Custom
+					end
+					local isAiming = false
+					local char = player.Character
+					if char then
+						for _, tool in ipairs(char:GetChildren()) do
+							if tool:IsA("Tool") then
+								local aimingValue = tool:FindFirstChild("Aiming") or tool:FindFirstChild("IsAiming") or tool:FindFirstChild("Zoom")
+								if aimingValue then
+									if typeof(aimingValue) == "BoolValue" and aimingValue.Value == true then
+										isAiming = true
+									elseif typeof(aimingValue) == "NumberValue" and aimingValue.Value > 0 then
+										isAiming = true
+									end
+								end
+							end
+						end
+					end
+
+					if not isAiming then
+						local head = char and (char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart"))
+						if head and (currentCam.Focus.Position - head.Position).Magnitude > 50 then
+							currentCam.CFrame = CFrame.new(head.Position + Vector3.new(0, 5, -12), head.Position)
+						end
+					end
+				end
+			end)
+		end
+	end))
+
+	trackConn(RunService.RenderStepped:Connect(function()
+		if orbitOn then
+			pcall(function()
+				local _, root = getSafeParts()
+				if root then
+					local t = os.clock() * 5
+					local radius = 25
+					local offset = Vector3.new(math.cos(t) * radius, 10, math.sin(t) * radius)
+					root.CFrame = CFrame.new(root.Position + offset)
+				end
+			end)
+		elseif voidSpanOn then
+			pcall(function()
+				local _, root = getSafeParts()
+				if root then
+					root.CFrame = CFrame.new(root.Position + Vector3.new(0, 500, 0))
+				end
+			end)
+		end
+	end))
+
+	trackConn(RunService.RenderStepped:Connect(function()
+		if not teleporterOn then return end
+		local now = os.clock()
+		if now - lastTeleportTick >= 0.1 then
+			lastTeleportTick = now
+			pcall(function()
+				local _, root = getSafeParts()
+				if root then
+					local randomAngle = math.random() * math.pi * 2
+					local offsetX = math.cos(randomAngle) * teleporterBox.Text
+					local offsetZ = math.sin(randomAngle) * teleporterBox.Text
+					local currentPos = root.Position
+					root.CFrame = CFrame.new(currentPos.X + offsetX, currentPos.Y + 50, currentPos.Z + offsetZ)
+				end
+			end)
+		end
+	end))
+
+	trackConn(RunService.Stepped:Connect(function()
+		if not noclipOn then return end
+		pcall(function()
+			local char = player.Character
+			if char then
+				local root = char:FindFirstChild("HumanoidRootPart")
+				if root then
+					for _, part in ipairs(char:GetDescendants()) do
+						if part:IsA("BasePart") and part.CanCollide then
+							part.CanCollide = false
+						end
+					end
+				end
+			end
+		end)
+	end))
+
+	walkButton.MouseButton1Click:Connect(function()
+		walkOn = not walkOn
+		setToggle(walkButton, walkOn, "walk speed")
+		local h, _ = getSafeParts()
+		if h then h.WalkSpeed = walkOn and walkSpeed or 16 end
+	end)
+
+	walkBox.FocusLost:Connect(function()
+		walkSpeed = math.clamp(tonumber(walkBox.Text) or 16, 1, 1000)
+		walkBox.Text = tostring(walkSpeed)
+		local h, _ = getSafeParts()
+		if h and walkOn then h.WalkSpeed = walkSpeed end
+	end)
+
+	fightButton.MouseButton1Click:Connect(function()
+		if toggleFight then toggleFight(not fightOn) end
+	end)
+
+	fightBox.FocusLost:Connect(function()
+		fightSpeed = math.clamp(tonumber(fightBox.Text) or 50, 1, 1000)
+		fightBox.Text = tostring(fightSpeed)
+	end)
+
+	ragebotButton.MouseButton1Click:Connect(function()
+		ragebotOn = not ragebotOn
+		setToggle(ragebotButton, ragebotOn, "ragebot (auto lock snap)")
+	end)
+
+	auraButton.MouseButton1Click:Connect(function()
+		auraOn = not auraOn
+		setToggle(auraButton, auraOn, "aura (auto hit nearby)")
+	end)
+
+	triggerBotButton.MouseButton1Click:Connect(function()
+		triggerBotOn = not triggerBotOn
+		setToggle(triggerBotButton, triggerBotOn, "trigger bot (auto shoot target)")
+	end)
+
+	wallbangButton.MouseButton1Click:Connect(function()
+		wallbangOn = not wallbangOn
+		setToggle(wallbangButton, wallbangOn, "projectile wallbang")
+	end)
+
+	godModeButton.MouseButton1Click:Connect(function()
+		godModeOn = not godModeOn
+		setToggle(godModeButton, godModeOn, "god mode (forcefield)")
+	end)
+
+	forceThirdPersonButton.MouseButton1Click:Connect(function()
+		forceThirdPersonOn = not forceThirdPersonOn
+		setToggle(forceThirdPersonButton, forceThirdPersonOn, "force 3rd person (rivals)")
+	end)
+
+	espButton.MouseButton1Click:Connect(function()
+		if toggleEsp then toggleEsp(not espOn) end
+	end)
+
+	namesButton.MouseButton1Click:Connect(function()
+		namesOn = not namesOn
+		setToggle(namesButton, namesOn, "player names")
+	end)
+
+	healthButton.MouseButton1Click:Connect(function()
+		healthOn = not healthOn
+		setToggle(healthButton, healthOn, "player health text")
+	end)
+
+	fastShotButton.MouseButton1Click:Connect(function()
+		fastShotOn = not fastShotOn
+		setToggle(fastShotButton, fastShotOn, "fast shot (Engine Bypass)")
+	end)
+
+	fastShotBox.FocusLost:Connect(function()
+		fastShotRate = math.clamp(tonumber(fastShotBox.Text) or 800, 1, 1000)
+		fastShotBox.Text = tostring(fastShotRate)
+	end)
+
+	infiniteJumpButton.MouseButton1Click:Connect(function()
+		infiniteJumpOn = not infiniteJumpOn
+		setToggle(infiniteJumpButton, infiniteJumpOn, "infinite jump")
+	end)
+
+	orbitButton.MouseButton1Click:Connect(function()
+		orbitOn = not orbitOn
+		if orbitOn then voidSpanOn = false setToggle(voidSpanButton, false, "void span mode") end
+		setToggle(orbitButton, orbitOn, "orbit position mode")
+	end)
+
+	voidSpanButton.MouseButton1Click:Connect(function()
+		voidSpanOn = not voidSpanOn
+		if voidSpanOn then orbitOn = false setToggle(orbitButton, false, "orbit position mode") end
+		setToggle(voidSpanButton, voidSpanOn, "void span mode")
+	end)
+
+	teleporterButton.MouseButton1Click:Connect(function()
+		teleporterOn = not teleporterOn
+		setToggle(teleporterButton, teleporterOn, "auto 50k tp (every 0.1s)")
+	end)
+
+	teleporterBox.FocusLost:Connect(function()
+		teleportDistance = math.clamp(tonumber(teleporterBox.Text) or 50000, 1, 1000000)
+		teleporterBox.Text = tostring(teleportDistance)
+	end)
+
+	noclipButton.MouseButton1Click:Connect(function()
+		if toggleNoclip then toggleNoclip(not noclipOn) end
+	end)
+
+	showPage("main")
+	print("Anti-rival V1.8.2-FREE Build Loaded Successfully!")
+	print("[Update Info] Version: V1.8.2 | Time: 2026-07-29 | Signature A&R Art Added to Watermark")
+end
+
+if KEY_SYSTEM_ENABLED then
+	local keyGui = Instance.new("ScreenGui")
+	keyGui.Name = "AntiRivalKeySystem"
+	keyGui.ResetOnSpawn = false
+	keyGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	
+	local successKeyGui = pcall(function()
+		keyGui.Parent = player:WaitForChild("PlayerGui")
+	end)
+	if not successKeyGui then
+		keyGui.Parent = game:GetService("CoreGui")
+	end
+
+	local keyFrame = Instance.new("Frame")
+	keyFrame.Size = UDim2.fromOffset(360, 220)
+	keyFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+	keyFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+	keyFrame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+	keyFrame.BorderColor3 = Color3.fromRGB(50, 50, 70)
+	keyFrame.BorderSizePixel = 1
+	keyFrame.Active = true
+	keyFrame.Draggable = true
+	keyFrame.Parent = keyGui
+
+	-- 키 입력 창이 켜져 있는 동안 마우스 커서 강제 유지 (V1.8.2 실시간 처리)
+	forceEnableCursorForModal()
+	local cursorConnection
+	cursorConnection = RunService.RenderStepped:Connect(function()
+		if keyGui and keyGui.Parent then
+			forceEnableCursorForModal()
+		else
+			if cursorConnection then
+				cursorConnection:Disconnect()
+			end
+		end
+	end)
+
+	local keyCorner = Instance.new("UICorner")
+	keyCorner.CornerRadius = UDim.new(0, 6)
+	keyCorner.Parent = keyFrame
+
+	local keyTitle = Instance.new("TextLabel")
+	keyTitle.Size = UDim2.new(1, 0, 0, 35)
+	keyTitle.Position = UDim2.fromOffset(0, 10)
+	keyTitle.BackgroundTransparency = 1
+	keyTitle.RichText = true
+	keyTitle.Text = '<font color="rgb(255,50,50)">Anti-Rival V1.8.2 Key System</font>'
+	keyTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
+	keyTitle.TextSize = 14
+	keyTitle.Font = Enum.Font.Code
+	keyTitle.Parent = keyFrame
+
+	local descLabel = Instance.new("TextLabel")
+	descLabel.Size = UDim2.new(1, -20, 0, 30)
+	descLabel.Position = UDim2.fromOffset(10, 45)
+	descLabel.BackgroundTransparency = 1
+	descLabel.Text = "Please get the key from Work.ink to access the script."
+	descLabel.TextColor3 = Color3.fromRGB(160, 160, 170)
+	descLabel.TextSize = 11
+	descLabel.Font = Enum.Font.Code
+	descLabel.Parent = keyFrame
+
+	local getKeyBtn = Instance.new("TextButton")
+	getKeyBtn.Size = UDim2.fromOffset(340, 28)
+	getKeyBtn.Position = UDim2.fromOffset(10, 80)
+	getKeyBtn.BackgroundColor3 = Color3.fromRGB(30, 40, 70)
+	getKeyBtn.BorderColor3 = Color3.fromRGB(60, 90, 150)
+	getKeyBtn.BorderSizePixel = 1
+	getKeyBtn.Text = "Get Key (Work.ink)"
+	getKeyBtn.TextColor3 = Color3.fromRGB(130, 180, 255)
+	getKeyBtn.TextSize = 11
+	getKeyBtn.Font = Enum.Font.Code
+	getKeyBtn.Parent = keyFrame
+
+	getKeyBtn.MouseButton1Click:Connect(function()
+		pcall(function()
+			if setclipboard then
+				setclipboard(WORK_INK_URL)
+				getKeyBtn.Text = "Link Copied to Clipboard!"
+				task.delay(2, function()
+					if getKeyBtn and getKeyBtn.Parent then
+						getKeyBtn.Text = "Get Key (Work.ink)"
+					end
+				end)
+			end
+		end)
+	end)
+
+	local keyBox = Instance.new("TextBox")
+	keyBox.Size = UDim2.fromOffset(340, 30)
+	keyBox.Position = UDim2.fromOffset(10, 120)
+	keyBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+	keyBox.BorderColor3 = Color3.fromRGB(45, 45, 60)
+	keyBox.BorderSizePixel = 1
+	keyBox.PlaceholderText = "Enter your key here..."
+	keyBox.Text = ""
+	keyBox.TextColor3 = Color3.new(1, 1, 1)
+	keyBox.TextSize = 11
+	keyBox.Font = Enum.Font.Code
+	keyBox.Parent = keyFrame
+
+	local submitBtn = Instance.new("TextButton")
+	submitBtn.Size = UDim2.fromOffset(340, 30)
+	submitBtn.Position = UDim2.fromOffset(10, 160)
+	submitBtn.BackgroundColor3 = Color3.fromRGB(35, 75, 50)
+	submitBtn.BorderColor3 = Color3.fromRGB(50, 110, 70)
+	submitBtn.BorderSizePixel = 1
+	submitBtn.Text = "Submit Key"
+	submitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	submitBtn.TextSize = 12
+	submitBtn.Font = Enum.Font.Code
+	submitBtn.Parent = keyFrame
+
+	submitBtn.MouseButton1Click:Connect(function()
+		if keyBox.Text == CORRECT_KEY then
+			if cursorConnection then
+				cursorConnection:Disconnect()
+			end
+			keyGui:Destroy()
+			initMainScript()
+		else
+			submitBtn.Text = "Incorrect Key!"
+			submitBtn.BackgroundColor3 = Color3.fromRGB(110, 30, 30)
+			task.delay(1.5, function()
+				if submitBtn and submitBtn.Parent then
+					submitBtn.Text = "Submit Key"
+					submitBtn.BackgroundColor3 = Color3.fromRGB(35, 75, 50)
+				end
+			end)
+		end
+	end)
+else
+	initMainScript()
+end
