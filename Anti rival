@@ -2,7 +2,7 @@
 -- Execution freeze fix applied via task.defer & performance optimization.
 
 local KEY_SYSTEM_ENABLED = true
-local CORRECT_KEY = "wyudsasaioqjsiosa"
+local CORRECT_KEY = "djlasiwqjdcsjsajlkd"
 local WORK_INK_URL = "https://work.ink/2MIg/anti-rival-free"
 
 local Players = game:GetService("Players")
