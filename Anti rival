@@ -1,5 +1,4 @@
--- [V1.8.5 Update] UI Title and Keybinds Updated to Anti-rival V1.8.5-FREE Build, Version Updated to 1.8.5
--- Execution freeze fix applied via task.defer & performance optimization.
+-- [V1.8.5.2 Update] NEW key: dsljklilwdncmadsqopiddmklcd
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "dsljklilwdncmadsqopiddmklcd"
