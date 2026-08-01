@@ -3,7 +3,7 @@ local player = Players.LocalPlayer
 
 -- 화면에 메시지를 띄우기 위한 GUI 생성
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "UpdateNoticeGui"
+screenGui.Name = "AntiRivalNoticeGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
@@ -14,9 +14,9 @@ textLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- 글자 흰색
 textLabel.TextSize = 24
 textLabel.Font = Enum.Font.SourceSansBold
 -- 화면에 표시될 텍스트
-textLabel.Text = "Updating, please wait a moment!"
+textLabel.Text = "Anti rival is down! Cannot run."
 textLabel.Parent = screenGui
 
 -- 2초 동안 메시지를 보여준 후 강제로 게임 종료 (Kick)하며 추방 화면에 메시지 출력
 task.wait(2.0)
-player:Kick("\n\nUpdating, please wait a moment!")
+player:Kick("\n\nAnti rival is down! Cannot run.")
