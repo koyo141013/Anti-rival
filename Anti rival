@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.9.1 Update] NEW key: dsljklilwdncmadsqopiddmklcd
+-- [Anti-rival beta v0.1.9.4 Update] NEW key: dsljklilwdncmadsqopiddmklcd
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "jhdaoefaocfjnasdkfklJ"
@@ -276,7 +276,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.9.1 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.9.4 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -294,7 +294,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.9.1 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.9.4 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -321,7 +321,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.9.1)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.9.4)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -464,6 +464,14 @@ local function initMainScript()
 
 		updateMouseState(true)
 
+		local windowCursorConnection
+		windowCursorConnection = RunService.RenderStepped:Connect(function()
+			if window and window.Parent and window.Visible then
+				forceEnableCursorForModal()
+			end
+		end)
+		trackConn(windowCursorConnection)
+
 		local openGuiBtn = Instance.new("TextButton")
 		openGuiBtn.Name = "AntiRivalOpenButton"
 		openGuiBtn.Size = UDim2.fromOffset(120, 35)
@@ -528,7 +536,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.9.1 - discord.gg/anti-rival"
+		title.Text = "Anti-rival beta v0.1.9.4 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -596,10 +604,14 @@ local function initMainScript()
 			end
 		end
 
-		local function tab(text, name, order)
+		local function tab(text, name, order, isLast)
 			local button = Instance.new("TextButton")
 			button.LayoutOrder = order
-			button.Size = UDim2.new(0, 62, 1, 0)
+			if isLast then
+				button.Size = UDim2.new(1, -372, 1, 0)
+			else
+				button.Size = UDim2.new(0, 62, 1, 0)
+			end
 			button.BackgroundColor3 = Color3.fromRGB(18, 18, 23)
 			button.BorderColor3 = Color3.fromRGB(35, 35, 48)
 			button.BorderSizePixel = 1
@@ -612,13 +624,13 @@ local function initMainScript()
 			tabButtons[name] = button
 		end
 
-		tab("main", "main", 1)
-		tab("world", "world", 2)
-		tab("esp", "esp", 3)
-		tab("visuals", "visuals", 4)
-		tab("char", "character", 5)
-		tab("misc", "misc", 6)
-		tab("sett", "settings", 7)
+		tab("main", "main", 1, false)
+		tab("world", "world", 2, false)
+		tab("esp", "esp", 3, false)
+		tab("visuals", "visuals", 4, false)
+		tab("char", "character", 5, false)
+		tab("misc", "misc", 6, false)
+		tab("settings", "settings", 7, true)
 
 		local function createGroupBox(parent, text, size, pos)
 			local box = Instance.new("Frame")
@@ -871,7 +883,6 @@ local function initMainScript()
 			end)
 		end)
 
-		-- 세팅 탭 언로드(Unload) 버튼 추가
 		local unloadScriptBtn = Instance.new("TextButton")
 		unloadScriptBtn.Size = UDim2.new(1, -16, 0, 26)
 		unloadScriptBtn.Position = UDim2.fromOffset(8, 302)
@@ -885,7 +896,6 @@ local function initMainScript()
 
 		unloadScriptBtn.MouseButton1Click:Connect(function()
 			pcall(function()
-				-- 루프 및 커넥션 전체 해제
 				if getgenv and getgenv().AntiRivalConnectionList then
 					for _, conn in ipairs(getgenv().AntiRivalConnectionList) do
 						if typeof(conn) == "RBXScriptConnection" then
@@ -895,12 +905,10 @@ local function initMainScript()
 					getgenv().AntiRivalConnectionList = {}
 				end
 
-				-- 조명 효과 초기화
 				local lighting = game:GetService("Lighting")
 				local existingGamma = lighting:FindFirstChild("AntiRivalGamma")
 				if existingGamma then existingGamma:Destroy() end
 
-				-- 모든 GUI 인스턴스 파괴
 				if gui then gui:Destroy() end
 				if keybindGui then keybindGui:Destroy() end
 				if watermarkGui then watermarkGui:Destroy() end
@@ -1355,7 +1363,7 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.9.1 Loaded Successfully!")
+		print("Anti-rival beta v0.1.9.4 Loaded Successfully!")
 	end)
 end
 
@@ -1387,7 +1395,7 @@ if KEY_SYSTEM_ENABLED then
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (v0.1.9.1)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (v0.1.9.4)</font>'
 	keyTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
@@ -1434,7 +1442,7 @@ if KEY_SYSTEM_ENABLED then
 	submitBtn.BorderSizePixel = 1
 	submitBtn.Text = "Submit Key"
 	submitBtn.TextColor3 = Color3.fromRGB(100, 180, 255)
-	submitBtn.TextSize, submitBtn.Font = 12, Enum.Font.Code
+	submitBtn.TextSize, submitBtn.Font = 12, Enum.Font.Code -- 오타 수정 완료
 	submitBtn.Parent = keyFrame
 
 	submitBtn.MouseButton1Click:Connect(function()
