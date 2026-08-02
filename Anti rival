@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.9.5 Update]
+-- [Anti-rival beta v0.1.9.7 Update]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "jhdaoefaocfjnasdkfklJ"
@@ -99,7 +99,7 @@ local function initMainScript()
 		end)
 
 		local walkOn, fightOn, espOn, namesOn, healthOn, noclipOn = false, false, false, false, false, false
-		local ragebotOn = false
+		local aimbotOn = false
 		local auraOn = false
 		local triggerBotOn = false
 		local wallbangOn = false
@@ -277,7 +277,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.9.5 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.9.7 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -295,7 +295,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.9.5 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.9.7 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -322,7 +322,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.9.5)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.9.7)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -542,7 +542,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.9.5 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.9.7 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -770,8 +770,7 @@ local function initMainScript()
 		local fightButton = toggle(gMain1, "fight mode", UDim2.fromOffset(8, 126))
 
 		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 150), UDim2.fromOffset(12, 192))
-		-- ragebot에서 aimbot으로 명칭 변경
-		local ragebotButton = toggle(gMain2, "aimbot", UDim2.fromOffset(8, 22))
+		local aimbotButton = toggle(gMain2, "aimbot", UDim2.fromOffset(8, 22))
 		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 52))
 		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 82))
 		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 112))
@@ -1198,7 +1197,7 @@ local function initMainScript()
 		end)
 
 		trackConn(RunService.RenderStepped:Connect(function()
-			if not ragebotOn then return end
+			if not aimbotOn then return end
 			pcall(function()
 				local currentCam = getActiveCamera()
 				local bestTarget = nil
@@ -1340,8 +1339,7 @@ local function initMainScript()
 
 		fightButton.MouseButton1Click:Connect(function() if toggleFight then toggleFight(not fightOn) end end)
 
-		-- aimbot 토글 연결
-		ragebotButton.MouseButton1Click:Connect(function() ragebotOn = not ragebotOn; setToggle(ragebotButton, ragebotOn, "aimbot") end)
+		aimbotButton.MouseButton1Click:Connect(function() aimbotOn = not aimbotOn; setToggle(aimbotButton, aimbotOn, "aimbot") end)
 		auraButton.MouseButton1Click:Connect(function() auraOn = not auraOn; setToggle(auraButton, auraOn, "aura") end)
 		triggerBotButton.MouseButton1Click:Connect(function() triggerBotOn = not triggerBotOn; setToggle(triggerBotButton, triggerBotOn, "trigger bot") end)
 		wallbangButton.MouseButton1Click:Connect(function() wallbangOn = not wallbangOn; setToggle(wallbangButton, wallbangOn, "projectile wallbang") end)
@@ -1371,7 +1369,7 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.9.5 Loaded Successfully!")
+		print("Anti-rival beta v0.1.9.7 Loaded Successfully!")
 	end)
 end
 
@@ -1403,7 +1401,7 @@ if KEY_SYSTEM_ENABLED then
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (v0.1.9.5)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (v0.1.9.7)</font>'
 	keyTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
