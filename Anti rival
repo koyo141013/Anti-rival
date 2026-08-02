@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.9.4 Update] NEW key: dsljklilwdncmadsqopiddmklcd
+-- [Anti-rival beta v0.1.9.5 Update]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "jhdaoefaocfjnasdkfklJ"
@@ -123,13 +123,14 @@ local function initMainScript()
 		local fightConnection = nil
 		local bodyGyro, bodyVelocity = nil, nil
 
+		-- 초기 키바인드를 '없음(Enum.KeyCode.Unknown)'으로 설정
 		local keybinds = {
-			randomTp = Enum.KeyCode.Q,
-			autoTp = Enum.KeyCode.E,
-			orbit = Enum.KeyCode.R,
-			fight = Enum.KeyCode.F,
-			noclip = Enum.KeyCode.T,
-			esp = Enum.KeyCode.Y
+			randomTp = Enum.KeyCode.Unknown,
+			autoTp = Enum.KeyCode.Unknown,
+			orbit = Enum.KeyCode.Unknown,
+			fight = Enum.KeyCode.Unknown,
+			noclip = Enum.KeyCode.Unknown,
+			esp = Enum.KeyCode.Unknown
 		}
 		local listeningKey = nil
 
@@ -276,7 +277,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.9.4 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.9.5 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -294,7 +295,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.9.4 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.9.5 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -321,7 +322,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.9.4)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.9.5)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -339,7 +340,11 @@ local function initMainScript()
 		kbPadding.PaddingRight = UDim.new(0, 10)
 		kbPadding.Parent = kbFrame
 
-		local function createKbRow(name, keyText, featureText, order)
+		local function getKeyDisplayStr(keyCode)
+			return (keyCode == Enum.KeyCode.Unknown or keyCode == nil) and "None" or keyCode.Name
+		end
+
+		local function createKbRow(name, keyCode, featureText, order)
 			local row = Instance.new("Frame")
 			row.Name = name
 			row.Size = UDim2.new(1, 0, 0, 22)
@@ -351,7 +356,7 @@ local function initMainScript()
 			kLbl.Name = "Key"
 			kLbl.Size = UDim2.new(0, 80, 1, 0)
 			kLbl.BackgroundTransparency = 1
-			kLbl.Text = "[" .. keyText .. "]"
+			kLbl.Text = "[" .. getKeyDisplayStr(keyCode) .. "]"
 			kLbl.TextColor3 = Color3.fromRGB(100, 180, 255)
 			kLbl.TextSize = 11
 			kLbl.Font = Enum.Font.Code
@@ -373,20 +378,21 @@ local function initMainScript()
 			return kLbl
 		end
 
-		local kbRowRandomTp = createKbRow("RowRandomTp", keybinds.randomTp.Name, "Random TP", 1)
-		local kbRowAutoTp   = createKbRow("RowAutoTp", keybinds.autoTp.Name, "Auto 50k TP", 2)
-		local kbRowOrbit    = createKbRow("RowOrbit", keybinds.orbit.Name, "Orbit Mode", 3)
-		local kbRowFight    = createKbRow("RowFight", keybinds.fight.Name, "Fight Mode", 4)
-		local kbRowNoclip   = createKbRow("RowNoclip", keybinds.noclip.Name, "Noclip", 5)
-		local kbRowEsp      = createKbRow("RowEsp", keybinds.esp.Name, "Player ESP", 6)
+		local kbRowRandomTp = createKbRow("RowRandomTp", keybinds.randomTp, "Random TP", 1)
+		local kbRowAutoTp   = createKbRow("RowAutoTp", keybinds.autoTp, "Auto 50k TP", 2)
+		local kbRowOrbit    = createKbRow("RowOrbit", keybinds.orbit, "Orbit Mode", 3)
+		local kbRowFight    = createKbRow("RowFight", keybinds.fight, "Fight Mode", 4)
+		local kbRowNoclip   = createKbRow("RowNoclip", keybinds.noclip, "Noclip", 5)
+		local kbRowEsp      = createKbRow("RowEsp", keybinds.esp, "Player ESP", 6)
 
 		local function updateKeybindUI(keyName, newKeyName)
-			if keyName == "randomTp" then kbRowRandomTp.Text = "[" .. newKeyName .. "]"
-			elseif keyName == "autoTp" then kbRowAutoTp.Text = "[" .. newKeyName .. "]"
-			elseif keyName == "orbit" then kbRowOrbit.Text = "[" .. newKeyName .. "]"
-			elseif keyName == "fight" then kbRowFight.Text = "[" .. newKeyName .. "]"
-			elseif keyName == "noclip" then kbRowNoclip.Text = "[" .. newKeyName .. "]"
-			elseif keyName == "esp" then kbRowEsp.Text = "[" .. newKeyName .. "]"
+			local displayStr = (newKeyName == "Unknown" or newKeyName == nil) and "None" or newKeyName
+			if keyName == "randomTp" then kbRowRandomTp.Text = "[" .. displayStr .. "]"
+			elseif keyName == "autoTp" then kbRowAutoTp.Text = "[" .. displayStr .. "]"
+			elseif keyName == "orbit" then kbRowOrbit.Text = "[" .. displayStr .. "]"
+			elseif keyName == "fight" then kbRowFight.Text = "[" .. displayStr .. "]"
+			elseif keyName == "noclip" then kbRowNoclip.Text = "[" .. displayStr .. "]"
+			elseif keyName == "esp" then kbRowEsp.Text = "[" .. displayStr .. "]"
 			end
 		end
 
@@ -536,7 +542,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.9.4 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.9.5 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -764,7 +770,8 @@ local function initMainScript()
 		local fightButton = toggle(gMain1, "fight mode", UDim2.fromOffset(8, 126))
 
 		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 150), UDim2.fromOffset(12, 192))
-		local ragebotButton = toggle(gMain2, "ragebot", UDim2.fromOffset(8, 22))
+		-- ragebot에서 aimbot으로 명칭 변경
+		local ragebotButton = toggle(gMain2, "aimbot", UDim2.fromOffset(8, 22))
 		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 52))
 		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 82))
 		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 112))
@@ -843,7 +850,7 @@ local function initMainScript()
 			bindBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
 			bindBtn.BorderColor3 = Color3.fromRGB(45, 45, 60)
 			bindBtn.BorderSizePixel = 1
-			bindBtn.Text = tostring(keybinds[keyName].Name)
+			bindBtn.Text = getKeyDisplayStr(keybinds[keyName])
 			bindBtn.TextColor3 = Color3.fromRGB(100, 180, 255)
 			bindBtn.TextSize, bindBtn.Font = 11, Enum.Font.Code
 			bindBtn.Parent = parent
@@ -936,7 +943,7 @@ local function initMainScript()
 					end
 					listeningKey = nil
 				elseif not gameProcessed then
-					if input.KeyCode == keybinds.randomTp then
+					if keybinds.randomTp ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.randomTp then
 						pcall(function()
 							local _, myRoot = getSafeParts()
 							if not myRoot then return end
@@ -958,18 +965,18 @@ local function initMainScript()
 								myRoot.CFrame = CFrame.new(randomHead.Position + (offsetDir * 5), randomHead.Position)
 							end
 						end)
-					elseif input.KeyCode == keybinds.autoTp then
+					elseif keybinds.autoTp ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.autoTp then
 						teleporterOn = not teleporterOn
 						setToggle(teleporterButton, teleporterOn, "auto 50k tp (every 0.1s)")
-					elseif input.KeyCode == keybinds.orbit then
+					elseif keybinds.orbit ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.orbit then
 						orbitOn = not orbitOn
 						if orbitOn then voidSpanOn = false; setToggle(voidSpanButton, false, "void span mode") end
 						setToggle(orbitButton, orbitOn, "orbit position mode")
-					elseif input.KeyCode == keybinds.fight then
+					elseif keybinds.fight ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.fight then
 						if toggleFight then toggleFight(not fightOn) end
-					elseif input.KeyCode == keybinds.noclip then
+					elseif keybinds.noclip ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.noclip then
 						if toggleNoclip then toggleNoclip(not noclipOn) end
-					elseif input.KeyCode == keybinds.esp then
+					elseif keybinds.esp ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.esp then
 						if toggleEsp then toggleEsp(not espOn) end
 					end
 				end
@@ -1333,7 +1340,8 @@ local function initMainScript()
 
 		fightButton.MouseButton1Click:Connect(function() if toggleFight then toggleFight(not fightOn) end end)
 
-		ragebotButton.MouseButton1Click:Connect(function() ragebotOn = not ragebotOn; setToggle(ragebotButton, ragebotOn, "ragebot") end)
+		-- aimbot 토글 연결
+		ragebotButton.MouseButton1Click:Connect(function() ragebotOn = not ragebotOn; setToggle(ragebotButton, ragebotOn, "aimbot") end)
 		auraButton.MouseButton1Click:Connect(function() auraOn = not auraOn; setToggle(auraButton, auraOn, "aura") end)
 		triggerBotButton.MouseButton1Click:Connect(function() triggerBotOn = not triggerBotOn; setToggle(triggerBotButton, triggerBotOn, "trigger bot") end)
 		wallbangButton.MouseButton1Click:Connect(function() wallbangOn = not wallbangOn; setToggle(wallbangButton, wallbangOn, "projectile wallbang") end)
@@ -1363,7 +1371,7 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.9.4 Loaded Successfully!")
+		print("Anti-rival beta v0.1.9.5 Loaded Successfully!")
 	end)
 end
 
@@ -1395,7 +1403,7 @@ if KEY_SYSTEM_ENABLED then
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (v0.1.9.4)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (v0.1.9.5)</font>'
 	keyTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
@@ -1442,7 +1450,7 @@ if KEY_SYSTEM_ENABLED then
 	submitBtn.BorderSizePixel = 1
 	submitBtn.Text = "Submit Key"
 	submitBtn.TextColor3 = Color3.fromRGB(100, 180, 255)
-	submitBtn.TextSize, submitBtn.Font = 12, Enum.Font.Code -- 오타 수정 완료
+	submitBtn.TextSize, submitBtn.Font = 12, Enum.Font.Code
 	submitBtn.Parent = keyFrame
 
 	submitBtn.MouseButton1Click:Connect(function()
