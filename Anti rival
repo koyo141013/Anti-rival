@@ -1,13 +1,38 @@
--- [Anti-rival beta v0.1.2.0 Update + Fixed Target Selector Aimbot]
+-- [Anti-rival beta v0.1.3.0 Update][cite: 2]
 
 local KEY_SYSTEM_ENABLED = true
-local CORRECT_KEY = "euyadocasndaoesd"
+local CORRECT_KEY = "KEYAUTH-wJHDUOHajkDFLHWAlehValdcuiaaaalEHU"
 local WORK_INK_URL = "https://work.ink/2MIg/anti-rival-free"
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+
+local CONFIG_FILE_NAME = "AntiRival_SavedKey.json"
+
+local function getSavedKey()
+	if isfile and isfile(CONFIG_FILE_NAME) then
+		local success, decoded = pcall(function()
+			return game:GetService("HttpService"):JSONDecode(readfile(CONFIG_FILE_NAME))
+		end)
+		if success and type(decoded) == "table" then
+			return decoded.verifiedKey
+		end
+	end
+	return nil
+end
+
+local function saveVerifiedKey(key)
+	if writefile then
+		local success, encoded = pcall(function()
+			return game:GetService("HttpService"):JSONEncode({ verifiedKey = key })
+		end)
+		if success then
+			writefile(CONFIG_FILE_NAME, encoded)
+		end
+	end
+end
 
 local function forceEnableCursorForModal()
 	pcall(function()
@@ -102,7 +127,6 @@ local function initMainScript()
 		local aimbotOn = false
 		local auraOn = false
 		local triggerBotOn = false
-		local noSpreadOn = false
 		local wallbangOn = false
 		local godModeOn = false
 		local orbitOn = false
@@ -124,8 +148,6 @@ local function initMainScript()
 		local fightConnection = nil
 		local bodyGyro, bodyVelocity = nil, nil
 
-		local selectedTargets = {}
-
 		local keybinds = {
 			randomTp = Enum.KeyCode.Unknown,
 			autoTp = Enum.KeyCode.Unknown,
@@ -136,7 +158,7 @@ local function initMainScript()
 		}
 		local listeningKey = nil
 
-		local CONFIG_FILE_NAME = "AntiRival_Config.json"
+		local CONFIG_FILE_NAME_PREFS = "AntiRival_Config.json"
 
 		local function SaveConfig()
 			if writefile then
@@ -160,15 +182,15 @@ local function initMainScript()
 					return game:GetService("HttpService"):JSONEncode(configData)
 				end)
 				if success then
-					writefile(CONFIG_FILE_NAME, encoded)
+					writefile(CONFIG_FILE_NAME_PREFS, encoded)
 				end
 			end
 		end
 
 		local function LoadConfig()
-			if isfile and isfile(CONFIG_FILE_NAME) then
+			if isfile and isfile(CONFIG_FILE_NAME_PREFS) then
 				local success, decoded = pcall(function()
-					return game:GetService("HttpService"):JSONDecode(readfile(CONFIG_FILE_NAME))
+					return game:GetService("HttpService"):JSONDecode(readfile(CONFIG_FILE_NAME_PREFS))
 				end)
 				if success and type(decoded) == "table" then
 					if decoded.walkSpeed then walkSpeed = decoded.walkSpeed end
@@ -279,7 +301,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.2.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.3.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -297,7 +319,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.2.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.3.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -324,7 +346,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.2.0)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.3.0)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -445,7 +467,7 @@ local function initMainScript()
 		local window = Instance.new("Frame")
 		window.AnchorPoint = Vector2.new(0.5, 0.5)
 		window.Position = UDim2.new(0.5, 0, 0.5, 0)
-		window.Size = UDim2.fromOffset(450, 580)
+		window.Size = UDim2.fromOffset(450, 550)
 		window.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
 		window.BorderColor3 = Color3.fromRGB(45, 45, 60)
 		window.BorderSizePixel = 1
@@ -544,7 +566,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.2.0 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.3.0 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -579,7 +601,7 @@ local function initMainScript()
 			frame.Name = name
 			frame.Size = UDim2.fromScale(1, 1)
 			frame.BackgroundTransparency = 1
-			frame.CanvasSize = UDim2.new(0, 0, 1.9, 0)
+			frame.CanvasSize = UDim2.new(0, 0, 1.8, 0)
 			frame.ScrollBarThickness = 3
 			frame.Visible = false
 			frame.Parent = content
@@ -771,80 +793,11 @@ local function initMainScript()
 		end)
 		local fightButton = toggle(gMain1, "fight mode", UDim2.fromOffset(8, 126))
 
-		local gMain2 = createGroupBox(mainPage, "combat features & target selector", UDim2.fromOffset(418, 335), UDim2.fromOffset(12, 192))
+		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 150), UDim2.fromOffset(12, 192))
 		local aimbotButton = toggle(gMain2, "aimbot", UDim2.fromOffset(8, 22))
-		
-		local targetBoxLabel = Instance.new("TextLabel")
-		targetBoxLabel.Size = UDim2.new(1, -16, 0, 18)
-		targetBoxLabel.Position = UDim2.fromOffset(8, 50)
-		targetBoxLabel.BackgroundTransparency = 1
-		targetBoxLabel.Text = "Target Selector (Click player to toggle):"
-		targetBoxLabel.TextColor3 = Color3.fromRGB(140, 170, 200)
-		targetBoxLabel.TextSize = 10
-		targetBoxLabel.Font = Enum.Font.Code
-		targetBoxLabel.TextXAlignment = Enum.TextXAlignment.Left
-		targetBoxLabel.Parent = gMain2
-
-		local targetScrollingFrame = Instance.new("ScrollingFrame")
-		targetScrollingFrame.Size = UDim2.new(1, -16, 0, 110)
-		targetScrollingFrame.Position = UDim2.fromOffset(8, 70)
-		targetScrollingFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 23)
-		targetScrollingFrame.BorderColor3 = Color3.fromRGB(40, 40, 50)
-		targetScrollingFrame.BorderSizePixel = 1
-		targetScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-		targetScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-		targetScrollingFrame.ScrollBarThickness = 3
-		targetScrollingFrame.Parent = gMain2
-
-		local targetListLayout = Instance.new("UIListLayout")
-		targetListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-		targetListLayout.Padding = UDim.new(0, 2)
-		targetListLayout.Parent = targetScrollingFrame
-
-		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 188))
-		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 218))
-		local noSpreadButton_new = toggle(gMain2, "no spread", UDim2.fromOffset(8, 248))
-		local godModeButton_new = toggle(gMain2, "god mode", UDim2.fromOffset(8, 278))
-
-		local function refreshTargetList()
-			for _, child in ipairs(targetScrollingFrame:GetChildren()) do
-				if child:IsA("TextButton") then
-					child:Destroy()
-				end
-			end
-
-			for _, p in ipairs(Players:GetPlayers()) do
-				if p ~= player then
-					local btn = Instance.new("TextButton")
-					btn.Size = UDim2.new(1, 0, 0, 22)
-					btn.BackgroundColor3 = selectedTargets[p.Name] and Color3.fromRGB(30, 60, 45) or Color3.fromRGB(22, 22, 26)
-					btn.BorderColor3 = selectedTargets[p.Name] and Color3.fromRGB(80, 160, 110) or Color3.fromRGB(40, 40, 50)
-					btn.BorderSizePixel = 1
-					btn.Text = "  " .. p.Name .. (selectedTargets[p.Name] and " [SELECTED]" or "")
-					btn.TextColor3 = selectedTargets[p.Name] and Color3.fromRGB(100, 255, 150) or Color3.fromRGB(180, 180, 195)
-					btn.TextSize = 11
-					btn.Font = Enum.Font.Code
-					btn.TextXAlignment = Enum.TextXAlignment.Left
-					btn.Parent = targetScrollingFrame
-
-					btn.MouseButton1Click:Connect(function()
-						if selectedTargets[p.Name] then
-							selectedTargets[p.Name] = nil
-						else
-							selectedTargets[p.Name] = true
-						end
-						refreshTargetList()
-					end)
-				end
-			end
-		end
-
-		trackConn(Players.PlayerAdded:Connect(function() refreshTargetList() end))
-		trackConn(Players.PlayerRemoving:Connect(function(p)
-			selectedTargets[p.Name] = nil
-			refreshTargetList()
-		end))
-		refreshTargetList()
+		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 52))
+		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 82))
+		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 112))
 
 		local gWorld1 = createGroupBox(worldPage, "world & utilities", UDim2.fromOffset(418, 100), UDim2.fromOffset(12, 12))
 		local wallbangButton = toggle(gWorld1, "projectile wallbang", UDim2.fromOffset(8, 22))
@@ -1271,43 +1224,29 @@ local function initMainScript()
 			if not aimbotOn then return end
 			pcall(function()
 				local currentCam = getActiveCamera()
-				if not currentCam then return end
-				
 				local bestTarget = nil
 				local shortestDist = math.huge
-				
 				for _, p in ipairs(Players:GetPlayers()) do
 					if p ~= player then
-						if selectedTargets[p.Name] == true then
-							local char = p.Character
-							if char then
-								local hum = char:FindFirstChildOfClass("Humanoid")
-								if hum and hum.Health > 0 then
-									local targetPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
-									if targetPart then
+						local char = p.Character
+						if char then
+							local hum = char:FindFirstChildOfClass("Humanoid")
+							if hum and hum.Health > 0 then
+								local targetPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+								if targetPart then
+									local _, onScreen = currentCam:WorldToViewportPoint(targetPart.Position)
+									if onScreen then
 										local dist = (targetPart.Position - currentCam.CFrame.Position).Magnitude
-										if dist < shortestDist then 
-											shortestDist = dist 
-											bestTarget = targetPart 
-										end
+										if dist < shortestDist then shortestDist = dist; bestTarget = targetPart end
 									end
 								end
 							end
 						end
 					end
 				end
-
-				if bestTarget then
-					local camPos = currentCam.CFrame.Position
-					currentCam.CFrame = CFrame.new(camPos, bestTarget.Position)
-				end
+				if bestTarget then currentCam.CFrame = CFrame.new(currentCam.CFrame.Position, bestTarget.Position) end
 			end)
 		end))
-
-		aimbotButton.MouseButton1Click:Connect(function() 
-			aimbotOn = not aimbotOn 
-			setToggle(aimbotButton, aimbotOn, "aimbot") 
-		end)
 
 		trackConn(RunService.RenderStepped:Connect(function()
 			if not auraOn then return end
@@ -1316,15 +1255,13 @@ local function initMainScript()
 				if not root then return end
 				for _, p in ipairs(Players:GetPlayers()) do
 					if p ~= player then
-						if selectedTargets[p.Name] == true then
-							local char = p.Character
-							if char then
-								local hum = char:FindFirstChildOfClass("Humanoid")
-								local targetRoot = char:FindFirstChild("HumanoidRootPart")
-								if hum and hum.Health > 0 and targetRoot and (targetRoot.Position - root.Position).Magnitude <= 45 then
-									for _, tool in ipairs(player.Character:GetChildren()) do
-										if tool:IsA("Tool") then tool:Activate() end
-									end
+						local char = p.Character
+						if char then
+							local hum = char:FindFirstChildOfClass("Humanoid")
+							local targetRoot = char:FindFirstChild("HumanoidRootPart")
+							if hum and hum.Health > 0 and targetRoot and (targetRoot.Position - root.Position).Magnitude <= 45 then
+								for _, tool in ipairs(player.Character:GetChildren()) do
+									if tool:IsA("Tool") then tool:Activate() end
 								end
 							end
 						end
@@ -1333,8 +1270,13 @@ local function initMainScript()
 			end)
 		end))
 
+		local lastTriggerCheck = 0
 		trackConn(RunService.RenderStepped:Connect(function()
 			if not triggerBotOn then return end
+			local now = os.clock()
+			if now - lastTriggerCheck < 0.05 then return end
+			lastTriggerCheck = now
+
 			pcall(function()
 				local currentCam = getActiveCamera()
 				local mouseLocation = UserInputService:GetMouseLocation()
@@ -1343,42 +1285,17 @@ local function initMainScript()
 				raycastParams.FilterType = RaycastType.Include
 				local includeList = {}
 				for _, p in ipairs(Players:GetPlayers()) do
-					if p ~= player and selectedTargets[p.Name] == true and p.Character then table.insert(includeList, p.Character) end
+					if p ~= player and p.Character then table.insert(includeList, p.Character) end
 				end
-				if #includeList > 0 then
-					raycastParams.FilterDescendantsInstances = includeList
-					local raycastResult = Workspace:Raycast(unitRay.Origin, unitRay.Direction * 10000, raycastParams)
-					if raycastResult and raycastResult.Instance then
-						local hitChar = raycastResult.Instance.Parent
-						local hum = hitChar:FindFirstChildOfClass("Humanoid")
-						local p = Players:GetPlayerFromCharacter(hitChar)
-						if hum and hum.Health > 0 and p and p ~= player and selectedTargets[p.Name] == true then
-							for _, tool in ipairs(player.Character:GetChildren()) do
-								if tool:IsA("Tool") then tool:Activate() end
-							end
-						end
-					end
-				end
-			end)
-		end))
-
-		local lastNoSpreadTick = 0
-		trackConn(RunService.RenderStepped:Connect(function()
-			if not noSpreadOn then return end
-			local now = os.clock()
-			if now - lastNoSpreadTick < 0.5 then return end
-			lastNoSpreadTick = now
-			pcall(function()
-				if getgc and type(getgc) == "function" then
-					for _, obj in ipairs(getgc(true)) do
-						if type(obj) == "table" then
-							pcall(function()
-								if rawget(obj, "Spread") or rawget(obj, "Recoil") or rawget(obj, "Inaccuracy") then
-									if rawget(obj, "Spread") then rawset(obj, "Spread", 0) end
-									if rawget(obj, "Recoil") then rawset(obj, "Recoil", 0) end
-									if rawget(obj, "Inaccuracy") then rawset(obj, "Inaccuracy", 0) end
-								end
-							end)
+				raycastParams.FilterDescendantsInstances = includeList
+				local raycastResult = Workspace:Raycast(unitRay.Origin, unitRay.Direction * 10000, raycastParams)
+				if raycastResult and raycastResult.Instance then
+					local hitChar = raycastResult.Instance.Parent
+					local hum = hitChar:FindFirstChildOfClass("Humanoid")
+					local p = Players:GetPlayerFromCharacter(hitChar)
+					if hum and hum.Health > 0 and p and p ~= player then
+						for _, tool in ipairs(player.Character:GetChildren()) do
+							if tool:IsA("Tool") then tool:Activate() end
 						end
 					end
 				end
@@ -1451,11 +1368,11 @@ local function initMainScript()
 
 		fightButton.MouseButton1Click:Connect(function() if toggleFight then toggleFight(not fightOn) end end)
 
+		aimbotButton.MouseButton1Click:Connect(function() aimbotOn = not aimbotOn; setToggle(aimbotButton, aimbotOn, "aimbot") end)
 		auraButton.MouseButton1Click:Connect(function() auraOn = not auraOn; setToggle(auraButton, auraOn, "aura") end)
 		triggerBotButton.MouseButton1Click:Connect(function() triggerBotOn = not triggerBotOn; setToggle(triggerBotButton, triggerBotOn, "trigger bot") end)
-		noSpreadButton_new.MouseButton1Click:Connect(function() noSpreadOn = not noSpreadOn; setToggle(noSpreadButton_new, noSpreadOn, "no spread") end)
 		wallbangButton.MouseButton1Click:Connect(function() wallbangOn = not wallbangOn; setToggle(wallbangButton, wallbangOn, "projectile wallbang") end)
-		godModeButton_new.MouseButton1Click:Connect(function() godModeOn = not godModeOn; setToggle(godModeButton_new, godModeOn, "god mode") end)
+		godModeButton.MouseButton1Click:Connect(function() godModeOn = not godModeOn; setToggle(godModeButton, godModeOn, "god mode") end)
 		forceThirdPersonButton.MouseButton1Click:Connect(function() forceThirdPersonOn = not forceThirdPersonOn; setToggle(forceThirdPersonButton, forceThirdPersonOn, "force 3rd person (rivals)") end)
 
 		espButton.MouseButton1Click:Connect(function() if toggleEsp then toggleEsp(not espOn) end end)
@@ -1481,11 +1398,13 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.2.0 Loaded Successfully!")
+		print("Anti-rival beta v0.1.3.0 Loaded Successfully!")
 	end)
 end
 
-if KEY_SYSTEM_ENABLED then
+if KEY_SYSTEM_ENABLED and getSavedKey() == CORRECT_KEY then
+	initMainScript()
+else
 	local keyGui = Instance.new("ScreenGui")
 	keyGui.Name = "AntiRivalKeySystem"
 	keyGui.ResetOnSpawn = false
@@ -1505,7 +1424,13 @@ if KEY_SYSTEM_ENABLED then
 	forceEnableCursorForModal()
 	local cursorConnection
 	cursorConnection = RunService.RenderStepped:Connect(function()
-		if keyGui and keyGui.Parent then forceEnableCursorForModal() else if cursorConnection then cursorConnection:Disconnect() end end
+		if keyGui and keyGui.Parent then 
+			forceEnableCursorForModal() 
+		else 
+			if cursorConnection then 
+				cursorConnection:Disconnect() 
+			end 
+		end
 	end)
 
 	local keyTitle = Instance.new("TextLabel")
@@ -1513,7 +1438,7 @@ if KEY_SYSTEM_ENABLED then
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.2.0)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.3.0)</font>'
 	keyTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
@@ -1545,7 +1470,8 @@ if KEY_SYSTEM_ENABLED then
 	keyBox.Position = UDim2.fromOffset(12, 84)
 	keyBox.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
 	keyBox.BorderColor3 = Color3.fromRGB(45, 45, 60)
-	keyBox.BorderSizePixel, keyBox.PlaceholderText = 1, "Enter your key here..."
+	keyBox.BorderSizePixel = 1
+	keyBox.PlaceholderText = "Enter your key here..."
 	keyBox.Text = ""
 	keyBox.TextColor3 = Color3.new(1, 1, 1)
 	keyBox.TextSize, keyBox.Font = 11, Enum.Font.Code
@@ -1564,6 +1490,7 @@ if KEY_SYSTEM_ENABLED then
 
 	submitBtn.MouseButton1Click:Connect(function()
 		if keyBox.Text == CORRECT_KEY then
+			saveVerifiedKey(keyBox.Text)
 			if cursorConnection then cursorConnection:Disconnect() end
 			keyGui:Destroy()
 			initMainScript()
@@ -1575,6 +1502,4 @@ if KEY_SYSTEM_ENABLED then
 			end)
 		end
 	end)
-else
-	initMainScript()
 end
