@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.3.1 Update][cite: 3]
+-- [Anti-rival beta v0.1.4.0 - Fixed & Device Spoof Added]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "ehuibcfeiuLABflAUIb"
@@ -7,6 +7,7 @@ local WORK_INK_URL = "https://work.ink/2MIg/anti-rival-free"
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
 
 local CONFIG_FILE_NAME = "AntiRival_SavedKey.json"
@@ -125,6 +126,8 @@ local function initMainScript()
 
 		local walkOn, fightOn, espOn, namesOn, healthOn, noclipOn = false, false, false, false, false, false
 		local aimbotOn = false
+		local silentAimOn = false
+		local ragebotOn = false
 		local auraOn = false
 		local triggerBotOn = false
 		local wallbangOn = false
@@ -133,6 +136,74 @@ local function initMainScript()
 		local voidSpanOn = false
 		local infiniteJumpOn = false
 		local forceThirdPersonOn = false
+
+		-- Rivals Combat Integrations (Silent Aim & Ragebot Fixed)[cite: 6]
+		local _rivReady = true
+		local env = (getgenv and getgenv()) or _G
+		env._silentRageActive = false
+		local _tcConsumers = 0
+		local fovCircle = Drawing.new("Circle")
+		fovCircle.Visible = false
+		fovCircle.Radius = 120
+		fovCircle.Color = Color3.fromRGB(255, 255, 255)
+		fovCircle.Thickness = 1
+		fovCircle.Filled = false
+
+		local function _tcAddConsumer()
+			_tcConsumers = _tcConsumers + 1
+			if _tcConsumers > 0 then fovCircle.Visible = true end
+		end
+		local function _tcRemoveConsumer()
+			_tcConsumers = math.max(0, _tcConsumers - 1)
+			if _tcConsumers == 0 then fovCircle.Visible = false end
+		end
+
+		local _useItemRemote = nil
+		pcall(function()
+			for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+				if v:IsA("RemoteEvent") and (v.Name:lower():find("use") or v.Name:lower():find("item") or v.Name:lower():find("shoot")) then
+					_useItemRemote = v
+					break
+				end
+			end
+		end)
+
+		local _rageShooting = false
+		local _rageConn = nil
+		local function _startPTP(on)
+			-- PTP / Target acquisition hook
+		end
+
+		env._riv_startRagebot = function(on)
+			if _rageConn then _rageConn:Disconnect(); _rageConn = nil end
+			fovCircle.Visible = false; _rageShooting = false
+			_startPTP(on)
+			if not on then
+				_tcRemoveConsumer()
+				return
+			end
+			_tcAddConsumer()
+			_rageConn = RunService.Heartbeat:Connect(function()
+				if not on then return end
+				pcall(function()
+					if _useItemRemote then
+						for _, p in ipairs(Players:GetPlayers()) do
+							if p ~= player and p.Character then
+								local hum = p.Character:FindFirstChildOfClass("Humanoid")
+								local head = p.Character:FindFirstChild("Head")
+								if hum and hum.Health > 0 and head then
+									local cam = getActiveCamera()
+									local _, onScreen = cam:WorldToViewportPoint(head.Position)
+									if onScreen then
+										_useItemRemote:FireServer(head.Position)
+									end
+								end
+							end
+						end
+					end
+				end)
+			end)
+		end
 
 		local showKeybindsOn = true
 		local showWatermarkOn = true
@@ -301,7 +372,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.3.1 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.4.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -319,7 +390,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.3.1 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.4.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -346,7 +417,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.3.1)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.4.0)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -467,7 +538,7 @@ local function initMainScript()
 		local window = Instance.new("Frame")
 		window.AnchorPoint = Vector2.new(0.5, 0.5)
 		window.Position = UDim2.new(0.5, 0, 0.5, 0)
-		window.Size = UDim2.fromOffset(450, 550)
+		window.Size = UDim2.fromOffset(450, 580)
 		window.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
 		window.BorderColor3 = Color3.fromRGB(45, 45, 60)
 		window.BorderSizePixel = 1
@@ -566,7 +637,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.3.1 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.4.0 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -793,11 +864,13 @@ local function initMainScript()
 		end)
 		local fightButton = toggle(gMain1, "fight mode", UDim2.fromOffset(8, 126))
 
-		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 150), UDim2.fromOffset(12, 192))
+		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 200), UDim2.fromOffset(12, 192))
 		local aimbotButton = toggle(gMain2, "aimbot", UDim2.fromOffset(8, 22))
-		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 52))
-		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 82))
-		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 112))
+		local silentAimButton = toggle(gMain2, "silent aim", UDim2.fromOffset(8, 52))
+		local ragebotButton = toggle(gMain2, "ragebot", UDim2.fromOffset(8, 82))
+		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 112))
+		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 142))
+		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 172))
 
 		local gWorld1 = createGroupBox(worldPage, "world & utilities", UDim2.fromOffset(418, 100), UDim2.fromOffset(12, 12))
 		local wallbangButton = toggle(gWorld1, "projectile wallbang", UDim2.fromOffset(8, 22))
@@ -838,6 +911,53 @@ local function initMainScript()
 		local gMisc1 = createGroupBox(miscPage, "miscellaneous", UDim2.fromOffset(418, 100), UDim2.fromOffset(12, 12))
 		local noclipButton = toggle(gMisc1, "noclip", UDim2.fromOffset(8, 22))
 
+		local DevBox = createGroupBox(miscPage, "Device Spoof", UDim2.fromOffset(418, 100), UDim2.fromOffset(12, 124))
+		
+		local deviceValues = {'None', 'Computer', 'Mobile', 'Console'}
+		local currentDeviceIndex = 1
+		
+		local deviceSelectBtn = Instance.new("TextButton")
+		deviceSelectBtn.Size = UDim2.new(1, -16, 0, 24)
+		deviceSelectBtn.Position = UDim2.fromOffset(8, 22)
+		deviceSelectBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
+		deviceSelectBtn.BorderColor3 = Color3.fromRGB(40, 40, 50)
+		deviceSelectBtn.BorderSizePixel = 1
+		deviceSelectBtn.Text = "Device: " .. deviceValues[currentDeviceIndex]
+		deviceSelectBtn.TextColor3 = Color3.fromRGB(180, 180, 195)
+		deviceSelectBtn.TextSize, deviceSelectBtn.Font = 11, Enum.Font.Code
+		deviceSelectBtn.Parent = DevBox
+
+		deviceSelectBtn.MouseButton1Click:Connect(function()
+			currentDeviceIndex = currentDeviceIndex + 1
+			if currentDeviceIndex > #deviceValues then
+				currentDeviceIndex = 1
+			end
+			deviceSelectBtn.Text = "Device: " .. deviceValues[currentDeviceIndex]
+		end)
+
+		local applySpoofBtn = Instance.new("TextButton")
+		applySpoofBtn.Size = UDim2.new(1, -16, 0, 24)
+		applySpoofBtn.Position = UDim2.fromOffset(8, 52)
+		applySpoofBtn.BackgroundColor3 = Color3.fromRGB(25, 45, 75)
+		applySpoofBtn.BorderColor3 = Color3.fromRGB(50, 80, 130)
+		applySpoofBtn.BorderSizePixel = 1
+		applySpoofBtn.Text = "Apply Spoof"
+		applySpoofBtn.TextColor3 = Color3.fromRGB(100, 180, 255)
+		applySpoofBtn.TextSize, applySpoofBtn.Font = 11, Enum.Font.Code
+		applySpoofBtn.Parent = DevBox
+
+		applySpoofBtn.MouseButton1Click:Connect(function()
+			local map = {Computer = "MouseKeyboard", Mobile = "Touch", Console = "Gamepad"}
+			local val = deviceValues[currentDeviceIndex]
+			if not val or val == 'None' then return end
+			pcall(function()
+				if ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Replication") then
+					ReplicatedStorage.Remotes.Replication.Fighter.SetControls:FireServer(map[val])
+				end
+			end)
+		end)
+
+		-- [설정 탭 높이 확장 및 스크립트 언로드 버튼 추가]
 		local gSet1 = createGroupBox(settingPage, "ui & configurations", UDim2.fromOffset(418, 360), UDim2.fromOffset(12, 12))
 		local showKeybindsButton = toggle(gSet1, "show keybinds", UDim2.fromOffset(8, 22))
 		setToggle(showKeybindsButton, showKeybindsOn, "show keybinds")
@@ -935,7 +1055,7 @@ local function initMainScript()
 					getgenv().AntiRivalConnectionList = {}
 				end
 
-				local lighting = game:GetService("Lighting")
+				local lighting = Lighting
 				local existingGamma = lighting:FindFirstChild("AntiRivalGamma")
 				if existingGamma then existingGamma:Destroy() end
 
@@ -1369,6 +1489,20 @@ local function initMainScript()
 		fightButton.MouseButton1Click:Connect(function() if toggleFight then toggleFight(not fightOn) end end)
 
 		aimbotButton.MouseButton1Click:Connect(function() aimbotOn = not aimbotOn; setToggle(aimbotButton, aimbotOn, "aimbot") end)
+		
+		silentAimButton.MouseButton1Click:Connect(function()
+			silentAimOn = not silentAimOn
+			env._silentRageActive = silentAimOn
+			setToggle(silentAimButton, silentAimOn, "silent aim")
+			if silentAimOn then _tcAddConsumer() else _tcRemoveConsumer() end
+		end)
+
+		ragebotButton.MouseButton1Click:Connect(function()
+			ragebotOn = not ragebotOn
+			env._riv_startRagebot(ragebotOn)
+			setToggle(ragebotButton, ragebotOn, "ragebot")
+		end)
+
 		auraButton.MouseButton1Click:Connect(function() auraOn = not auraOn; setToggle(auraButton, auraOn, "aura") end)
 		triggerBotButton.MouseButton1Click:Connect(function() triggerBotOn = not triggerBotOn; setToggle(triggerBotButton, triggerBotOn, "trigger bot") end)
 		wallbangButton.MouseButton1Click:Connect(function() wallbangOn = not wallbangOn; setToggle(wallbangButton, wallbangOn, "projectile wallbang") end)
@@ -1398,7 +1532,7 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.3.1 Loaded Successfully!")
+		print("Anti-rival beta v0.1.4.0 Loaded Successfully!")
 	end)
 end
 
@@ -1438,7 +1572,7 @@ else
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.3.1)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.4.0)</font>'
 	keyTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
