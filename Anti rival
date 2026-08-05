@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.4.0 - Fixed & Device Spoof Added][cite: 10]
+-- [Anti-rival beta v0.1.5.2 - Fixed & Optimized with Rivals Hub Silent Aim Reference]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "HEUIAWGWOFAWOAROEIFE"
@@ -73,27 +73,6 @@ local function initMainScript()
 			end
 		end)
 
-		pcall(function()
-			if getgenv and hookfunction and newcclosure then
-				local coreGui = game:GetService("CoreGui")
-				if protectgui then
-					pcall(function() protectgui(coreGui) end)
-				end
-
-				if getgc and type(getgc) == "function" then
-					for _, obj in ipairs(getgc(true)) do
-						if type(obj) == "table" then
-							pcall(function()
-								if rawget(obj, "Detect") or rawget(obj, "AntiCheat") then
-									rawset(obj, "Detect", function() return false end)
-								end
-							end)
-						end
-					end
-				end
-			end
-		end)
-
 		local Lighting = game:GetService("Lighting")
 		local Workspace = game:GetService("Workspace")
 
@@ -102,22 +81,13 @@ local function initMainScript()
 			isMobile = UserInputService.TouchEnabled
 		end)
 
-		if not isMobile then
-			pcall(function()
-				local GuiService = game:GetService("GuiService")
-				if GuiService:IsTenFootInterface() == false and (not UserInputService.KeyboardEnabled) then
-					isMobile = true
-				end
-			end)
-		end
-
 		local uiScaleFactor = isMobile and 0.55 or 1.0
 
 		pcall(function()
 			local playerGui = player:WaitForChild("PlayerGui", 5)
 			if playerGui then
 				for _, guiObj in ipairs(playerGui:GetChildren()) do
-					if guiObj.Name == "AntiRival" or guiObj.Name == "AntiRivalGui" or guiObj.Name == "AntiRivalKeybinds" or guiObj.Name == "AntiRivalWatermark" or guiObj.Name:find("AntiRival") then
+					if guiObj.Name:find("AntiRival") then
 						guiObj:Destroy()
 					end
 				end
@@ -137,25 +107,77 @@ local function initMainScript()
 		local infiniteJumpOn = false
 		local forceThirdPersonOn = false
 
-		-- Rivals Combat Integrations (Silent Aim & Ragebot Fixed)[cite: 6]
 		local _rivReady = true
 		local env = (getgenv and getgenv()) or _G
 		env._silentRageActive = false
 		local _tcConsumers = 0
-		local fovCircle = Drawing.new("Circle")
-		fovCircle.Visible = false
-		fovCircle.Radius = 120
-		fovCircle.Color = Color3.fromRGB(255, 255, 255)
-		fovCircle.Thickness = 1
-		fovCircle.Filled = false
+		local fovCircle = nil
+		pcall(function()
+			if Drawing then
+				fovCircle = Drawing.new("Circle")
+				fovCircle.Visible = false
+				fovCircle.Radius = 120
+				fovCircle.Color = Color3.fromRGB(255, 255, 255)
+				fovCircle.Thickness = 1
+				fovCircle.Filled = false
+			end
+		end)
 
+		local function trackConn(conn)
+			if conn and getgenv and getgenv().AntiRivalConnectionList then
+				table.insert(getgenv().AntiRivalConnectionList, conn)
+			end
+			return conn
+		end
+
+		-- Rivals Hub 방식의 소비자(Consumer) 기반 FOV 및 사일런트 에임 토글 연동 
 		local function _tcAddConsumer()
 			_tcConsumers = _tcConsumers + 1
-			if _tcConsumers > 0 then fovCircle.Visible = true end
+			if fovCircle and _tcConsumers > 0 then fovCircle.Visible = true end
 		end
 		local function _tcRemoveConsumer()
 			_tcConsumers = math.max(0, _tcConsumers - 1)
-			if _tcConsumers == 0 then fovCircle.Visible = false end
+			if fovCircle and _tcConsumers == 0 then fovCircle.Visible = false end
+		end
+
+		trackConn(RunService.RenderStepped:Connect(function()
+			if fovCircle and fovCircle.Visible then
+				local success, mousePos = pcall(function() return UserInputService:GetMouseLocation() end)
+				if success and mousePos then
+					fovCircle.Position = mousePos
+				end
+			end
+		end))
+
+		local function getClosestPlayerToCursor()
+			local bestTarget = nil
+			local shortestDist = (fovCircle and fovCircle.Radius) or 120
+			local successMouse, mousePos = pcall(function() return UserInputService:GetMouseLocation() end)
+			if not successMouse or not mousePos then return nil end
+
+			local currentCam = Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
+			if not currentCam then return nil end
+
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= player then
+					local char = p.Character
+					if char then
+						local hum = char:FindFirstChildOfClass("Humanoid")
+						local head = char:FindFirstChild("Head")
+						if hum and hum.Health > 0 and head then
+							local screenPos, onScreen = currentCam:WorldToViewportPoint(head.Position)
+							if onScreen then
+								local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+								if dist < shortestDist then
+									shortestDist = dist
+									bestTarget = head
+								end
+							end
+						end
+					end
+				end
+			end
+			return bestTarget
 		end
 
 		local _useItemRemote = nil
@@ -168,16 +190,10 @@ local function initMainScript()
 			end
 		end)
 
-		local _rageShooting = false
 		local _rageConn = nil
-		local function _startPTP(on)
-			-- PTP / Target acquisition hook
-		end
-
 		env._riv_startRagebot = function(on)
 			if _rageConn then _rageConn:Disconnect(); _rageConn = nil end
-			fovCircle.Visible = false; _rageShooting = false
-			_startPTP(on)
+			if fovCircle then fovCircle.Visible = false end
 			if not on then
 				_tcRemoveConsumer()
 				return
@@ -192,7 +208,7 @@ local function initMainScript()
 								local hum = p.Character:FindFirstChildOfClass("Humanoid")
 								local head = p.Character:FindFirstChild("Head")
 								if hum and hum.Health > 0 and head then
-									local cam = getActiveCamera()
+									local cam = Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
 									local _, onScreen = cam:WorldToViewportPoint(head.Position)
 									if onScreen then
 										_useItemRemote:FireServer(head.Position)
@@ -284,13 +300,6 @@ local function initMainScript()
 
 		LoadConfig()
 
-		local function trackConn(conn)
-			if conn and getgenv and getgenv().AntiRivalConnectionList then
-				table.insert(getgenv().AntiRivalConnectionList, conn)
-			end
-			return conn
-		end
-
 		local function getActiveCamera()
 			return Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
 		end
@@ -372,7 +381,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.4.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.5.2 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -390,7 +399,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.4.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.5.2 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -417,7 +426,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.4.0)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.5.2)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -637,7 +646,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.4.0 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.5.2 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -957,7 +966,6 @@ local function initMainScript()
 			end)
 		end)
 
-		-- [설정 탭 높이 확장 및 스크립트 언로드 버튼 추가]
 		local gSet1 = createGroupBox(settingPage, "ui & configurations", UDim2.fromOffset(418, 360), UDim2.fromOffset(12, 12))
 		local showKeybindsButton = toggle(gSet1, "show keybinds", UDim2.fromOffset(8, 22))
 		setToggle(showKeybindsButton, showKeybindsOn, "show keybinds")
@@ -1054,6 +1062,8 @@ local function initMainScript()
 					end
 					getgenv().AntiRivalConnectionList = {}
 				end
+
+				if fovCircle then fovCircle:Remove() end
 
 				local lighting = Lighting
 				local existingGamma = lighting:FindFirstChild("AntiRivalGamma")
@@ -1490,6 +1500,7 @@ local function initMainScript()
 
 		aimbotButton.MouseButton1Click:Connect(function() aimbotOn = not aimbotOn; setToggle(aimbotButton, aimbotOn, "aimbot") end)
 		
+		-- Rivals Hub 참고: 사일런트 에임 토글 시 _silentRageActive 연동 및 FOV 서클 가시성 처리
 		silentAimButton.MouseButton1Click:Connect(function()
 			silentAimOn = not silentAimOn
 			env._silentRageActive = silentAimOn
@@ -1532,7 +1543,7 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.4.0 Loaded Successfully!")
+		print("Anti-rival beta v0.1.5.2 Loaded Successfully!")
 	end)
 end
 
@@ -1572,7 +1583,7 @@ else
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.4.0)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.5.2)</font>'
 	keyTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
