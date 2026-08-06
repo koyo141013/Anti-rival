@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.7.0 - Fixed & Optimized with Rivals Hub Silent Aim Reference][cite: 10]
+-- [Anti-rival beta v0.1.7.0 - Fixed & Optimized with Rivals Hub Silent Aim Reference & Target Selection UI][cite: 10]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "aoifespuwfhpipfuhpfawuiop"
@@ -107,6 +107,9 @@ local function initMainScript()
 		local infiniteJumpOn = false
 		local forceThirdPersonOn = false
 
+		-- 타겟 선택 시스템을 위한 변수
+		local selectedTargets = {} -- [Player] = true 형태의 테이블
+
 		local _rivReady = true
 		local env = (getgenv and getgenv()) or _G
 		env._silentRageActive = false
@@ -130,7 +133,6 @@ local function initMainScript()
 			return conn
 		end
 
-		-- Rivals Hub 방식의 소비자(Consumer) 기반 FOV 및 사일런트 에임 토글 연동 
 		local function _tcAddConsumer()
 			_tcConsumers = _tcConsumers + 1
 			if fovCircle and _tcConsumers > 0 then fovCircle.Visible = true end
@@ -873,13 +875,79 @@ local function initMainScript()
 		end)
 		local fightButton = toggle(gMain1, "fight mode", UDim2.fromOffset(8, 126))
 
-		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 200), UDim2.fromOffset(12, 192))
+		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 310), UDim2.fromOffset(12, 192))
 		local aimbotButton = toggle(gMain2, "aimbot", UDim2.fromOffset(8, 22))
-		local silentAimButton = toggle(gMain2, "silent aim", UDim2.fromOffset(8, 52))
-		local ragebotButton = toggle(gMain2, "ragebot", UDim2.fromOffset(8, 82))
-		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 112))
-		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 142))
-		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 172))
+
+		-- [추가됨] 타겟 선택 UI 박스 (에임봇 토글 바로 아래)
+		local targetListContainer = Instance.new("ScrollingFrame")
+		targetListContainer.Name = "TargetListContainer"
+		targetListContainer.Size = UDim2.new(1, -16, 0, 100)
+		targetListContainer.Position = UDim2.fromOffset(8, 52)
+		targetListContainer.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+		targetListContainer.BorderColor3 = Color3.fromRGB(40, 40, 50)
+		targetListContainer.BorderSizePixel = 1
+		targetListContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+		targetListContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		targetListContainer.ScrollBarThickness = 3
+		targetListContainer.Parent = gMain2
+
+		local targetListLayout = Instance.new("UIListLayout")
+		targetListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		targetListLayout.Padding = UDim.new(0, 2)
+		targetListLayout.Parent = targetListContainer
+
+		local targetListPadding = Instance.new("UIPadding")
+		targetListPadding.PaddingTop = UDim.new(0, 2)
+		targetListPadding.PaddingBottom = UDim.new(0, 2)
+		targetListPadding.PaddingLeft = UDim.new(0, 2)
+		targetListPadding.PaddingRight = UDim.new(0, 2)
+		targetListPadding.Parent = targetListContainer
+
+		local function refreshTargetList()
+			for _, child in ipairs(targetListContainer:GetChildren()) do
+				if child:IsA("TextButton") then
+					child:Destroy()
+				end
+			end
+
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= player then
+					local btn = Instance.new("TextButton")
+					btn.Size = UDim2.new(1, 0, 0, 22)
+					btn.BackgroundColor3 = selectedTargets[p] and Color3.fromRGB(30, 60, 45) or Color3.fromRGB(22, 22, 26)
+					btn.BorderColor3 = selectedTargets[p] and Color3.fromRGB(80, 160, 110) or Color3.fromRGB(40, 40, 50)
+					btn.BorderSizePixel = 1
+					btn.Text = "  " .. p.Name .. (selectedTargets[p] and " [TARGET]" or "")
+					btn.TextColor3 = selectedTargets[p] and Color3.fromRGB(100, 255, 150) or Color3.fromRGB(180, 180, 195)
+					btn.TextSize = 11
+					btn.Font = Enum.Font.Code
+					btn.TextXAlignment = Enum.TextXAlignment.Left
+					btn.Parent = targetListContainer
+
+					btn.MouseButton1Click:Connect(function()
+						if selectedTargets[p] then
+							selectedTargets[p] = nil
+						else
+							selectedTargets[p] = true
+						end
+						refreshTargetList()
+					end)
+				end
+			end
+		end
+
+		trackConn(Players.PlayerAdded:Connect(function() refreshTargetList() end))
+		trackConn(Players.PlayerRemoving:Connect(function(p)
+			selectedTargets[p] = nil
+			refreshTargetList()
+		end))
+		refreshTargetList()
+
+		local silentAimButton = toggle(gMain2, "silent aim", UDim2.fromOffset(8, 158))
+		local ragebotButton = toggle(gMain2, "ragebot", UDim2.fromOffset(8, 188))
+		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 218))
+		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 248))
+		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 278))
 
 		local gWorld1 = createGroupBox(worldPage, "world & utilities", UDim2.fromOffset(418, 100), UDim2.fromOffset(12, 12))
 		local wallbangButton = toggle(gWorld1, "projectile wallbang", UDim2.fromOffset(8, 22))
@@ -1355,14 +1423,19 @@ local function initMainScript()
 			end)
 		end)
 
+		-- [수정됨] 선택된 타겟 우선 에임봇 로직
 		trackConn(RunService.RenderStepped:Connect(function()
 			if not aimbotOn then return end
 			pcall(function()
 				local currentCam = getActiveCamera()
 				local bestTarget = nil
 				local shortestDist = math.huge
-				for _, p in ipairs(Players:GetPlayers()) do
-					if p ~= player then
+
+				-- 1. 수동 지정된 타겟이 있는지 확인
+				local hasSelectedTarget = false
+				for p, isSelected in pairs(selectedTargets) do
+					if isSelected then
+						hasSelectedTarget = true
 						local char = p.Character
 						if char then
 							local hum = char:FindFirstChildOfClass("Humanoid")
@@ -1372,14 +1445,45 @@ local function initMainScript()
 									local _, onScreen = currentCam:WorldToViewportPoint(targetPart.Position)
 									if onScreen then
 										local dist = (targetPart.Position - currentCam.CFrame.Position).Magnitude
-										if dist < shortestDist then shortestDist = dist; bestTarget = targetPart end
+										if dist < shortestDist then
+											shortestDist = dist
+											bestTarget = targetPart
+										end
 									end
 								end
 							end
 						end
 					end
 				end
-				if bestTarget then currentCam.CFrame = CFrame.new(currentCam.CFrame.Position, bestTarget.Position) end
+
+				-- 2. 지정된 타겟이 없거나 시야에 없으면 기본적으로 적 팀(전체) 대상 탐색
+				if not bestTarget and not hasSelectedTarget then
+					for _, p in ipairs(Players:GetPlayers()) do
+						if p ~= player then
+							local char = p.Character
+							if char then
+								local hum = char:FindFirstChildOfClass("Humanoid")
+								if hum and hum.Health > 0 then
+									local targetPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+									if targetPart then
+										local _, onScreen = currentCam:WorldToViewportPoint(targetPart.Position)
+										if onScreen then
+											local dist = (targetPart.Position - currentCam.CFrame.Position).Magnitude
+											if dist < shortestDist then
+												shortestDist = dist
+												bestTarget = targetPart
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+
+				if bestTarget then
+					currentCam.CFrame = CFrame.new(currentCam.CFrame.Position, bestTarget.Position)
+				end
 			end)
 		end))
 
@@ -1505,7 +1609,6 @@ local function initMainScript()
 
 		aimbotButton.MouseButton1Click:Connect(function() aimbotOn = not aimbotOn; setToggle(aimbotButton, aimbotOn, "aimbot") end)
 		
-		-- Rivals Hub 참고: 사일런트 에임 토글 시 _silentRageActive 연동 및 FOV 서클 가시성 처리
 		silentAimButton.MouseButton1Click:Connect(function()
 			silentAimOn = not silentAimOn
 			env._silentRageActive = silentAimOn
@@ -1589,7 +1692,6 @@ else
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
 	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.7.0)</font>'
-	keyTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
 	keyTitle.Parent = keyFrame
