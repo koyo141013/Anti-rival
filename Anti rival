@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.6.0 - Fixed & Optimized with Custom Target Selection]
+-- [Anti-rival beta v0.1.7.0 - Fixed & Optimized with Rivals Hub Silent Aim Reference][cite: 10]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "aoifespuwfhpipfuhpfawuiop"
@@ -130,6 +130,7 @@ local function initMainScript()
 			return conn
 		end
 
+		-- Rivals Hub 방식의 소비자(Consumer) 기반 FOV 및 사일런트 에임 토글 연동 
 		local function _tcAddConsumer()
 			_tcConsumers = _tcConsumers + 1
 			if fovCircle and _tcConsumers > 0 then fovCircle.Visible = true end
@@ -380,7 +381,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.6.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.7.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -398,7 +399,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.6.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.7.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -425,7 +426,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.6.0)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.7.0)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -645,7 +646,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.6.0 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.7.0 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -680,7 +681,7 @@ local function initMainScript()
 			frame.Name = name
 			frame.Size = UDim2.fromScale(1, 1)
 			frame.BackgroundTransparency = 1
-			frame.CanvasSize = UDim2.new(0, 0, 2.2, 0)
+			frame.CanvasSize = UDim2.new(0, 0, 1.8, 0)
 			frame.ScrollBarThickness = 3
 			frame.Visible = false
 			frame.Parent = content
@@ -872,70 +873,13 @@ local function initMainScript()
 		end)
 		local fightButton = toggle(gMain1, "fight mode", UDim2.fromOffset(8, 126))
 
-		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 330), UDim2.fromOffset(12, 192))
+		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 200), UDim2.fromOffset(12, 192))
 		local aimbotButton = toggle(gMain2, "aimbot", UDim2.fromOffset(8, 22))
-		
-		local targetListContainer = Instance.new("ScrollingFrame")
-		targetListContainer.Size = UDim2.new(1, -16, 0, 110)
-		targetListContainer.Position = UDim2.fromOffset(8, 50)
-		targetListContainer.BackgroundColor3 = Color3.fromRGB(18, 18, 23)
-		targetListContainer.BorderColor3 = Color3.fromRGB(40, 40, 50)
-		targetListContainer.BorderSizePixel = 1
-		targetListContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
-		targetListContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
-		targetListContainer.ScrollBarThickness = 3
-		targetListContainer.Parent = gMain2
-
-		local targetListLayout = Instance.new("UIListLayout")
-		targetListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-		targetListLayout.Padding = UDim.new(0, 2)
-		targetListLayout.Parent = targetListContainer
-
-		local selectedTargets = {}
-		local playerButtons = {}
-
-		local function refreshTargetList()
-			for _, btn in pairs(playerButtons) do
-				if btn and btn.Parent then btn:Destroy() end
-			end
-			playerButtons = {}
-
-			for _, p in ipairs(Players:GetPlayers()) do
-				if p ~= player then
-					local pBtn = Instance.new("TextButton")
-					pBtn.Size = UDim2.new(1, 0, 0, 22)
-					pBtn.BackgroundColor3 = selectedTargets[p] and Color3.fromRGB(30, 60, 45) or Color3.fromRGB(22, 22, 26)
-					pBtn.BorderColor3 = selectedTargets[p] and Color3.fromRGB(80, 160, 110) or Color3.fromRGB(40, 40, 50)
-					pBtn.BorderSizePixel = 1
-					pBtn.Text = "  " .. p.Name .. (selectedTargets[p] and " [SELECTED]" or "")
-					pBtn.TextColor3 = selectedTargets[p] and Color3.fromRGB(100, 255, 150) or Color3.fromRGB(180, 180, 195)
-					pBtn.TextSize = 11
-					pBtn.Font = Enum.Font.Code
-					pBtn.TextXAlignment = Enum.TextXAlignment.Left
-					pBtn.Parent = targetListContainer
-
-					pBtn.MouseButton1Click:Connect(function()
-						selectedTargets[p] = not selectedTargets[p]
-						refreshTargetList()
-					end)
-
-					playerButtons[p] = pBtn
-				end
-			end
-		end
-
-		trackConn(Players.PlayerAdded:Connect(function(p) refreshTargetList() end))
-		trackConn(Players.PlayerRemoving:Connect(function(p)
-			selectedTargets[p] = nil
-			refreshTargetList()
-		end))
-		refreshTargetList()
-
-		local silentAimButton = toggle(gMain2, "silent aim", UDim2.fromOffset(8, 164))
-		local ragebotButton = toggle(gMain2, "ragebot", UDim2.fromOffset(8, 194))
-		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 224))
-		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 254))
-		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 284))
+		local silentAimButton = toggle(gMain2, "silent aim", UDim2.fromOffset(8, 52))
+		local ragebotButton = toggle(gMain2, "ragebot", UDim2.fromOffset(8, 82))
+		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 112))
+		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 142))
+		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 172))
 
 		local gWorld1 = createGroupBox(worldPage, "world & utilities", UDim2.fromOffset(418, 100), UDim2.fromOffset(12, 12))
 		local wallbangButton = toggle(gWorld1, "projectile wallbang", UDim2.fromOffset(8, 22))
@@ -978,7 +922,7 @@ local function initMainScript()
 
 		local DevBox = createGroupBox(miscPage, "Device Spoof", UDim2.fromOffset(418, 100), UDim2.fromOffset(12, 124))
 		
-		local deviceValues = {'None', 'Computer', 'Mobile', 'Console'}
+		local deviceValues = {'None', 'Computer', 'Mobile', 'Console', 'VR'}
 		local currentDeviceIndex = 1
 		
 		local deviceSelectBtn = Instance.new("TextButton")
@@ -1012,7 +956,12 @@ local function initMainScript()
 		applySpoofBtn.Parent = DevBox
 
 		applySpoofBtn.MouseButton1Click:Connect(function()
-			local map = {Computer = "MouseKeyboard", Mobile = "Touch", Console = "Gamepad"}
+			local map = {
+				Computer = "MouseKeyboard", 
+				Mobile = "Touch", 
+				Console = "Gamepad",
+				VR = "VR"
+			}
 			local val = deviceValues[currentDeviceIndex]
 			if not val or val == 'None' then return end
 			pcall(function()
@@ -1410,15 +1359,10 @@ local function initMainScript()
 			if not aimbotOn then return end
 			pcall(function()
 				local currentCam = getActiveCamera()
-				if not currentCam then return end
-
 				local bestTarget = nil
 				local shortestDist = math.huge
-				
-				local hasManualTarget = false
-				for p, isSelected in pairs(selectedTargets) do
-					if isSelected then
-						hasManualTarget = true
+				for _, p in ipairs(Players:GetPlayers()) do
+					if p ~= player then
 						local char = p.Character
 						if char then
 							local hum = char:FindFirstChildOfClass("Humanoid")
@@ -1428,92 +1372,14 @@ local function initMainScript()
 									local _, onScreen = currentCam:WorldToViewportPoint(targetPart.Position)
 									if onScreen then
 										local dist = (targetPart.Position - currentCam.CFrame.Position).Magnitude
-										if dist < shortestDist then
-											shortestDist = dist
-											bestTarget = targetPart
-										end
+										if dist < shortestDist then shortestDist = dist; bestTarget = targetPart end
 									end
 								end
 							end
 						end
 					end
 				end
-
-				if not bestTarget then
-					for _, p in ipairs(Players:GetPlayers()) do
-						if p ~= player then
-							local char = p.Character
-							if char then
-								local hum = char:FindFirstChildOfClass("Humanoid")
-								if hum and hum.Health > 0 then
-									local targetPart = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
-									if targetPart then
-										local _, onScreen = currentCam:WorldToViewportPoint(targetPart.Position)
-										if onScreen then
-											local dist = (targetPart.Position - currentCam.CFrame.Position).Magnitude
-											if dist < shortestDist then
-												shortestDist = dist
-												bestTarget = targetPart
-											end
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-
-				if bestTarget then
-					currentCam.CFrame = CFrame.new(currentCam.CFrame.Position, bestTarget.Position)
-				end
-			end)
-		end))
-
-		trackConn(RunService.RenderStepped:Connect(function()
-			if not silentAimOn then return end
-			pcall(function()
-				local targetHead = getClosestPlayerToCursor()
-				if targetHead then
-					local currentCam = getActiveCamera()
-					if currentCam then
-						currentCam.CFrame = CFrame.new(currentCam.CFrame.Position, targetHead.Position)
-					end
-				end
-			end)
-		end))
-
-		trackConn(RunService.RenderStepped:Connect(function()
-			if not ragebotOn then return end
-			pcall(function()
-				local currentCam = getActiveCamera()
-				local _, myRoot = getSafeParts()
-				if not currentCam or not myRoot then return end
-
-				local bestTarget = nil
-				local shortestDist = math.huge
-				for _, p in ipairs(Players:GetPlayers()) do
-					if p ~= player then
-						local char = p.Character
-						if char then
-							local hum = char:FindFirstChildOfClass("Humanoid")
-							local head = char:FindFirstChild("Head")
-							if hum and hum.Health > 0 and head then
-								local dist = (head.Position - myRoot.Position).Magnitude
-								if dist < shortestDist then
-									shortestDist = dist
-									bestTarget = head
-								end
-							end
-						end
-					end
-				end
-
-				if bestTarget then
-					currentCam.CFrame = CFrame.new(currentCam.CFrame.Position, bestTarget.Position)
-					if _useItemRemote then
-						_useItemRemote:FireServer(bestTarget.Position)
-					end
-				end
+				if bestTarget then currentCam.CFrame = CFrame.new(currentCam.CFrame.Position, bestTarget.Position) end
 			end)
 		end))
 
@@ -1639,6 +1505,7 @@ local function initMainScript()
 
 		aimbotButton.MouseButton1Click:Connect(function() aimbotOn = not aimbotOn; setToggle(aimbotButton, aimbotOn, "aimbot") end)
 		
+		-- Rivals Hub 참고: 사일런트 에임 토글 시 _silentRageActive 연동 및 FOV 서클 가시성 처리
 		silentAimButton.MouseButton1Click:Connect(function()
 			silentAimOn = not silentAimOn
 			env._silentRageActive = silentAimOn
@@ -1681,7 +1548,7 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.6.0 Loaded Successfully!")
+		print("Anti-rival beta v0.1.7.0 Loaded Successfully!")
 	end)
 end
 
@@ -1721,7 +1588,7 @@ else
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.6.0)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.7.0)</font>'
 	keyTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
@@ -1749,7 +1616,7 @@ else
 	end)
 
 	local keyBox = Instance.new("TextBox")
-	keyBox.Size = UDim2.new(1, -16, 0, 28)
+	keyBox.Size = UDim2.fromOffset(316, 28)
 	keyBox.Position = UDim2.fromOffset(12, 84)
 	keyBox.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
 	keyBox.BorderColor3 = Color3.fromRGB(45, 45, 60)
@@ -1761,7 +1628,7 @@ else
 	keyBox.Parent = keyFrame
 
 	local submitBtn = Instance.new("TextButton")
-	submitBtn.Size = UDim2.new(1, -16, 0, 30)
+	submitBtn.Size = UDim2.fromOffset(316, 30)
 	submitBtn.Position = UDim2.fromOffset(12, 124)
 	submitBtn.BackgroundColor3 = Color3.fromRGB(25, 55, 40)
 	submitBtn.BorderColor3 = Color3.fromRGB(45, 95, 65)
