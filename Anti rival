@@ -1422,7 +1422,7 @@ local function initMainScript()
 					myRoot.CFrame = CFrame.new(randomHead.Position + (offsetDir * 5), randomHead.Position)
 				end
 			end)
-		end))
+		end)
 
 		-- 선택된 타겟 우선 에임봇 로직
 		trackConn(RunService.RenderStepped:Connect(function()
