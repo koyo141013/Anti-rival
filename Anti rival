@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.7.1 - Fixed & Optimized with Rivals Hub Silent Aim Reference & Target Selection UI]
+-- [Anti-rival beta v0.1.8.0 - Fixed & Optimized with Rivals Hub Silent Aim Reference & Target Selection UI]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "uoaseranioaewfruo"
@@ -383,7 +383,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.7.1 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.8.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -401,7 +401,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.7.1 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.8.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -428,7 +428,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.7.1)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.8.0)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -648,7 +648,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.7.1 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.8.0 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -878,7 +878,7 @@ local function initMainScript()
 		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 310), UDim2.fromOffset(12, 192))
 		local aimbotButton = toggle(gMain2, "aimbot", UDim2.fromOffset(8, 22))
 
-		-- [추가됨] 타겟 선택 UI 박스 (에임봇 토글 바로 아래)
+		-- 타겟 선택 UI 박스
 		local targetListContainer = Instance.new("ScrollingFrame")
 		targetListContainer.Name = "TargetListContainer"
 		targetListContainer.Size = UDim2.new(1, -16, 0, 100)
@@ -965,7 +965,8 @@ local function initMainScript()
 		local teleporterSlider = createSlider(gVis1, "teleport distance", 1000, 1000000, teleportDistance, UDim2.fromOffset(8, 82), function(val)
 			teleportDistance = val
 		end)
-		local teleporterButton = toggle(gVis1, "auto 50k tp (every 0.1s)", UDim2.fromOffset(8, 124))
+		-- [수정됨] 0.1초 -> 1초로 간격 변경
+		local teleporterButton = toggle(gVis1, "auto 50k tp (every 1s)", UDim2.fromOffset(8, 124))
 
 		local randomTpButton = Instance.new("TextButton")
 		randomTpButton.Size = UDim2.new(1, -16, 0, 26)
@@ -1193,7 +1194,7 @@ local function initMainScript()
 						end)
 					elseif keybinds.autoTp ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.autoTp then
 						teleporterOn = not teleporterOn
-						setToggle(teleporterButton, teleporterOn, "auto 50k tp (every 0.1s)")
+						setToggle(teleporterButton, teleporterOn, "auto 50k tp (every 1s)")
 					elseif keybinds.orbit ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.orbit then
 						orbitOn = not orbitOn
 						if orbitOn then voidSpanOn = false; setToggle(voidSpanButton, false, "void span mode") end
@@ -1421,9 +1422,9 @@ local function initMainScript()
 					myRoot.CFrame = CFrame.new(randomHead.Position + (offsetDir * 5), randomHead.Position)
 				end
 			end)
-		end)
+		end))
 
-		-- [수정됨] 선택된 타겟 우선 에임봇 로직
+		-- 선택된 타겟 우선 에임봇 로직
 		trackConn(RunService.RenderStepped:Connect(function()
 			if not aimbotOn then return end
 			pcall(function()
@@ -1431,7 +1432,6 @@ local function initMainScript()
 				local bestTarget = nil
 				local shortestDist = math.huge
 
-				-- 1. 수동 지정된 타겟이 있는지 확인
 				local hasSelectedTarget = false
 				for p, isSelected in pairs(selectedTargets) do
 					if isSelected then
@@ -1456,7 +1456,6 @@ local function initMainScript()
 					end
 				end
 
-				-- 2. 지정된 타겟이 없거나 시야에 없으면 기본적으로 적 팀(전체) 대상 탐색
 				if not bestTarget and not hasSelectedTarget then
 					for _, p in ipairs(Players:GetPlayers()) do
 						if p ~= player then
@@ -1571,10 +1570,11 @@ local function initMainScript()
 			end
 		end))
 
+		-- [수정됨] 0.1초 체크를 1초(1.0)로 변경
 		trackConn(RunService.RenderStepped:Connect(function()
 			if not teleporterOn then return end
 			local now = os.clock()
-			if now - lastTeleportTick >= 0.1 then
+			if now - lastTeleportTick >= 1.0 then
 				lastTeleportTick = now
 				pcall(function()
 					local _, root = getSafeParts()
@@ -1647,11 +1647,12 @@ local function initMainScript()
 			setToggle(voidSpanButton, voidSpanOn, "void span mode")
 		end)
 
-		teleporterButton.MouseButton1Click:Connect(function() teleporterOn = not teleporterOn; setToggle(teleporterButton, teleporterOn, "auto 50k tp (every 0.1s)") end)
+		-- [수정됨] 토글 텍스트 변경
+		teleporterButton.MouseButton1Click:Connect(function() teleporterOn = not teleporterOn; setToggle(teleporterButton, teleporterOn, "auto 50k tp (every 1s)") end)
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.7.1 Loaded Successfully!")
+		print("Anti-rival beta v0.1.8.0 Loaded Successfully!")
 	end)
 end
 
@@ -1691,7 +1692,8 @@ else
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.7.1)</font>'
+	-- [수정됨] 키 입력 창 버전 표기 수정
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.8.0)</font>'
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
 	keyTitle.Parent = keyFrame
