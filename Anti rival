@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.9.0 - Enhanced & Fixed Version]
+-- [Anti-rival beta v0.1.9.0 - Enhanced & Fixed Version with Packet Spoofing + GC Mod]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "uoaseranioaewfruo"
@@ -8,6 +8,8 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
 local player = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
 
 local CONFIG_FILE_NAME = "AntiRival_SavedKey.json"
@@ -73,9 +75,6 @@ local function initMainScript()
 			end
 		end)
 
-		local Lighting = game:GetService("Lighting")
-		local Workspace = game:GetService("Workspace")
-
 		local isMobile = false
 		pcall(function()
 			isMobile = UserInputService.TouchEnabled
@@ -112,13 +111,42 @@ local function initMainScript()
 		local _rivReady = true
 		local env = (getgenv and getgenv()) or _G
 		env._silentRageActive = false
+		env._ragebotActive = false
 		env._rivRapidFire = false
 		env._rivNoRecoil = false
 
-		-- 총기 모듈 및 메타테이블 후킹[cite: 10]
+		-- [수정] 타겟 탐색 함수 (가장 가까운 적 찾기 - 후킹 모듈에서 사용하기 위해 먼저 선언)
+		local function getBestTarget(fovLimit)
+			local currentCam = Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
+			local mousePos = UserInputService:GetMouseLocation()
+			local bestTarget = nil
+			local shortestDist = fovLimit or 150
+
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= player and p.Character then
+					local hum = p.Character:FindFirstChildOfClass("Humanoid")
+					local head = p.Character:FindFirstChild("Head")
+					if hum and hum.Health > 0 and head then
+						local screenPos, onScreen = currentCam:WorldToViewportPoint(head.Position)
+						if onScreen then
+							local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+							if dist < shortestDist then
+								shortestDist = dist
+								bestTarget = head
+							end
+						end
+					end
+				end
+			end
+			return bestTarget
+		end
+
+		-- 총기 모듈 및 메타테이블 후킹 (요청한 Packet 조작 및 쿨다운 삭제 적용)
 		pcall(function()
 			local modulesFolder = ReplicatedStorage:WaitForChild("Modules", 3)
 			if modulesFolder then
+				
+				-- 1. ClientItem 후킹 (Rapid Fire 구현: 쿨다운을 0으로 변조)
 				local clientItemModule = modulesFolder:WaitForChild("ClientItem", 3)
 				if clientItemModule then
 					local ClientItem = require(clientItemModule)
@@ -140,9 +168,55 @@ local function initMainScript()
 						return origInput(self, ...)
 					end)
 				end
+				
+				-- 2. Gun 모듈 후킹 (Fast ADS 구현: 조준 속도 999 반환)
+				local gunModule = modulesFolder:FindFirstChild("Gun") or modulesFolder:FindFirstChild("GunItem")
+				if gunModule then
+					local Gun = require(gunModule)
+					local origGetAimSpeed = rawget(Gun, "GetAimSpeed") or Gun.GetAimSpeed
+					if origGetAimSpeed then
+						rawset(Gun, "GetAimSpeed", function(...)
+							if env._rivRapidFire then
+								return 999 -- 즉발 수준으로 조준
+							end
+							return origGetAimSpeed(...)
+						end)
+					end
+				end
+
+				-- 3. GunItem 모듈 후킹 (Silent Aim & Ragebot 구현: StartShooting 패킷 조작)
+				local gunItemModule = modulesFolder:FindFirstChild("GunItem")
+				if gunItemModule then
+					local GunItem = require(gunItemModule)
+					local origStartShooting = rawget(GunItem, "StartShooting") or GunItem.StartShooting
+					if origStartShooting then
+						rawset(GunItem, "StartShooting", function(self, ...)
+							if env._silentRageActive or env._ragebotActive then
+								local targetHead = getBestTarget(env._ragebotActive and 200 or 120)
+								local targetRemote = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Replication") and ReplicatedStorage.Remotes.Replication:FindFirstChild("Fighter") and ReplicatedStorage.Remotes.Replication.Fighter:FindFirstChild("UseItem")
+								
+								if targetHead and targetRemote then
+									-- 내 총구 위치 계산
+									local myOrigin = (self.Weapon and self.Weapon:FindFirstChild("Muzzle") and self.Weapon.Muzzle.Position) or Workspace.CurrentCamera.CFrame.Position
+									
+									-- 카메라 데이터 강제 수정 및 난독화 키를 이용한 Spoofing
+									local spoofedCameraData = {}
+									spoofedCameraData[utf8.char(0)] = myOrigin         -- originStruct
+									spoofedCameraData[utf8.char(1)] = targetHead.CFrame  -- aimPart.CFrame
+
+									-- 변조된 데이터를 리모트 이벤트로 직접 쏩니다
+									targetRemote:FireServer(spoofedCameraData)
+									return -- 기존의 정상 발사 처리는 무시
+								end
+							end
+							return origStartShooting(self, ...)
+						end)
+					end
+				end
 			end
 		end)
 
+		-- 기존 Value 기반 쿨다운 조작 루프
 		task.spawn(function()
 			while true do
 				if env._rivRapidFire then
@@ -165,6 +239,45 @@ local function initMainScript()
 					end)
 				end
 				task.wait(0.2)
+			end
+		end)
+
+		-- [추가된 부분] 게임 내 메모리(Garbage Collection)를 뒤져서 총기 스탯 테이블을 직접 변조하는 루프
+		task.spawn(function()
+			while true do
+				if env._rivRapidFire then
+					pcall(function()
+						for i, v in pairs(getgc(true)) do
+							if type(v) == "table" then
+								-- 테이블 안에 연사 속도와 관련된 키값이 존재하는지 확인
+								if rawget(v, "FireRate") or rawget(v, "Delay") or rawget(v, "ShootCooldown") then
+									
+									-- 값이 확인되면 딜레이를 없애기 위해 수치를 강제로 덮어쓰기
+									-- (주의: 0으로 설정, 안될 경우 9999로 수정하여 테스트 가능)
+									if rawget(v, "FireRate") then 
+										rawset(v, "FireRate", 0) 
+									end
+									if rawget(v, "Delay") then 
+										rawset(v, "Delay", 0) 
+									end
+									if rawget(v, "ShootCooldown") then 
+										rawset(v, "ShootCooldown", 0) 
+									end
+									
+									-- 단발 총기일 경우 자동으로 연사가 되도록 Auto 설정 켜기
+									if rawget(v, "Auto") ~= nil then 
+										rawset(v, "Auto", true) 
+									end
+									if rawget(v, "AutoFire") ~= nil then 
+										rawset(v, "AutoFire", true) 
+									end
+								end
+							end
+						end
+					end)
+				end
+				-- 메모리를 전부 훑는 getgc()는 프레임 드랍을 유발할 수 있어 2초 간격으로 실행합니다.
+				task.wait(2)
 			end
 		end)
 
@@ -206,49 +319,11 @@ local function initMainScript()
 			end
 		end))
 
-		local _useItemRemote = nil
-		pcall(function()
-			for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
-				if v:IsA("RemoteEvent") and (v.Name:lower():find("use") or v.Name:lower():find("item") or v.Name:lower():find("shoot")) then
-					_useItemRemote = v
-					break
-				end
-			end
-		end)
-
-		-- [수정] 실질적인 타겟 탐색 및 검증 함수 (Silent Aim / Ragebot 공용)
-		local function getBestTarget(fovLimit)
-			local currentCam = Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
-			local mousePos = UserInputService:GetMouseLocation()
-			local bestTarget = nil
-			local shortestDist = fovLimit or 150
-
-			for _, p in ipairs(Players:GetPlayers()) do
-				if p ~= player and p.Character then
-					local hum = p.Character:FindFirstChildOfClass("Humanoid")
-					local head = p.Character:FindFirstChild("Head")
-					if hum and hum.Health > 0 and head then
-						local screenPos, onScreen = currentCam:WorldToViewportPoint(head.Position)
-						if onScreen then
-							local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-							if dist < shortestDist then
-								shortestDist = dist
-								bestTarget = head
-							end
-						end
-					end
-				end
-			end
-			return bestTarget
-		end
-
-		-- [수정] 개선된 Silent Aim 로직 (메타테이블/인풋 후킹 또는 마우스 레이캐스트 오버라이드 연동)
 		trackConn(RunService.RenderStepped:Connect(function()
 			if not silentAimOn then return end
 			pcall(function()
 				local targetHead = getBestTarget(120)
-				if targetHead and _useItemRemote then
-					-- 적절한 타겟이 포착되었을 때 플래그 활성화 및 조준 유도
+				if targetHead then
 					env._silentRageActive = true
 				else
 					env._silentRageActive = false
@@ -256,11 +331,13 @@ local function initMainScript()
 			end)
 		end))
 
-		-- [수정] 개선된 Ragebot 로직 (무차별 난사 대신 유효 타겟 검증 및 쿨다운 적용)
+		-- [수정] Ragebot 로직 (서버로 직접 무차별 난사하던 것을, 툴 강제 클릭(자동 사격)으로 유도하여 StartShooting 후킹 발동)
 		local _rageConn = nil
 		env._riv_startRagebot = function(on)
 			if _rageConn then _rageConn:Disconnect(); _rageConn = nil end
 			if fovCircle then fovCircle.Visible = false end
+			env._ragebotActive = on
+			
 			if not on then
 				_tcRemoveConsumer()
 				return
@@ -271,14 +348,16 @@ local function initMainScript()
 			_rageConn = RunService.Heartbeat:Connect(function()
 				if not on then return end
 				local now = os.clock()
-				if now - lastRageTick < 0.1 then return end -- 패킷 스팸 방지 딜레이 추가
+				if now - lastRageTick < 0.05 then return end 
 				lastRageTick = now
 
 				pcall(function()
-					if _useItemRemote then
-						local targetHead = getBestTarget(200)
-						if targetHead then
-							_useItemRemote:FireServer(targetHead.Position)
+					local targetHead = getBestTarget(200)
+					if targetHead then
+						for _, tool in ipairs(player.Character:GetChildren()) do
+							if tool:IsA("Tool") then
+								tool:Activate() -- 마우스 클릭 신호를 보내 StartShooting 후킹을 유도
+							end
 						end
 					end
 				end)
@@ -1005,7 +1084,7 @@ local function initMainScript()
 		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 248))
 		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 278))
 		
-		local rapidFireButton = toggle(gMain2, "Rapid Fire", UDim2.fromOffset(8, 308))
+		local rapidFireButton = toggle(gMain2, "Rapid Fire & Fast ADS", UDim2.fromOffset(8, 308))
 		local noRecoilButton = toggle(gMain2, "No Recoil / No Spread", UDim2.fromOffset(8, 338))
 
 		local gWorld1 = createGroupBox(worldPage, "world & utilities", UDim2.fromOffset(418, 100), UDim2.fromOffset(12, 12))
@@ -1539,7 +1618,6 @@ local function initMainScript()
 			end)
 		end))
 
-		-- [수정] Aura 및 Trigger Bot: 실질적인 히트 판정 거리 및 적중 가능 검증 추가
 		trackConn(RunService.RenderStepped:Connect(function()
 			if not auraOn then return end
 			pcall(function()
@@ -1594,18 +1672,15 @@ local function initMainScript()
 			end)
 		end))
 
-		-- [수정] God Mode 및 Wallbang 실질 구현 추가
 		trackConn(RunService.Heartbeat:Connect(function()
 			pcall(function()
 				local char = player.Character
 				local hum = char and char:FindFirstChildOfClass("Humanoid")
 				
-				-- God Mode 구현: 체력 고정 및 데미지 상태 무효화
 				if godModeOn and hum then
 					hum.Health = hum.MaxHealth
 				end
 
-				-- Wallbang 구현: 투사체 및 장벽 충돌 속성 해제
 				if wallbangOn then
 					for _, p in ipairs(Workspace:GetDescendants()) do
 						if p:IsA("BasePart") and not p.Parent:FindFirstChildOfClass("Humanoid") then
@@ -1707,7 +1782,7 @@ local function initMainScript()
 
 		rapidFireButton.MouseButton1Click:Connect(function()
 			env._rivRapidFire = not env._rivRapidFire
-			setToggle(rapidFireButton, env._rivRapidFire, "Rapid Fire")
+			setToggle(rapidFireButton, env._rivRapidFire, "Rapid Fire & Fast ADS")
 		end)
 
 		noRecoilButton.MouseButton1Click:Connect(function()
