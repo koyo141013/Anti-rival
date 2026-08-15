@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.10
+-- [Anti-rival beta v0.1.11 - Enhanced & Fixed Version with Packet Spoofing + GC Mod + Custom Shader (Persistent Effects)]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "fioaepuwroepawmpoipruijop"
@@ -152,12 +152,12 @@ local function initMainScript()
 							if env._rivNoRecoil then
 								rawset(self.Info, "ShootRecoil", 0)
 								rawset(self.Info, "ShootSpread", 0)
-								rawset(self.Info, "ProjectileSpeed", 99999999999)
+								rawset(self.Info, "ProjectileSpeed", 99999999)
 							end
 							if env._rivRapidFire then
 								rawset(self.Info, "ShootCooldown", 0)
 								rawset(self.Info, "QuickShotCooldown", 0)
-								rawset(self.Info, "FireRate", 99999999)
+								rawset(self.Info, "FireRate", 9999)
 								rawset(self.Info, "Delay", 0)
 							end
 						end
@@ -490,7 +490,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.10 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.11 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -508,7 +508,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.10 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.11 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -535,7 +535,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.10)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.11)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -755,7 +755,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.10 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.11 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -1198,7 +1198,6 @@ local function initMainScript()
 				shaderState.auroraEmitter.Parent = shaderState.auroraPart
 			end
 
-			-- 파티클 추적 루프 (한 번만 연결)
 			if not shaderState.runConnection then
 				shaderState.runConnection = RunService.RenderStepped:Connect(function()
 					local cam = Workspace.CurrentCamera
@@ -1217,7 +1216,6 @@ local function initMainScript()
 		end
 
 		local function launchCustomShader()
-			-- 이미 메뉴가 열려있으면 무시
 			if player.PlayerGui:FindFirstChild("ShaderMenuGui") then
 				return
 			end
@@ -1262,8 +1260,8 @@ local function initMainScript()
 			modalBg.Parent = screenGui
 
 			local mainWindow = Instance.new("Frame")
-			mainWindow.Size = UDim2.new(0, 240, 0, 350)
-			mainWindow.Position = UDim2.new(0.8, -250, 0.5, -175)
+			mainWindow.Size = UDim2.new(0, 240, 0, 390) -- 언로드 버튼 공간 확보를 위해 세로 크기 조정
+			mainWindow.Position = UDim2.new(0.8, -250, 0.5, -195)
 			mainWindow.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 			mainWindow.Active = true
 			mainWindow.Parent = screenGui
@@ -1289,9 +1287,22 @@ local function initMainScript()
 			closeButton.TextSize = 14
 			closeButton.Parent = mainWindow
 
+			-- 쉐이더 창 내부 언로드 버튼 추가
+			local shaderUnloadBtn = Instance.new("TextButton")
+			shaderUnloadBtn.Size = UDim2.new(1, -20, 0, 28)
+			shaderUnloadBtn.Position = UDim2.new(0, 10, 0, 33)
+			shaderUnloadBtn.BackgroundColor3 = Color3.fromRGB(65, 30, 30)
+			shaderUnloadBtn.BorderColor3 = Color3.fromRGB(110, 50, 50)
+			shaderUnloadBtn.BorderSizePixel = 1
+			shaderUnloadBtn.Text = "쉐이더 완전 언로드 (초기화)"
+			shaderUnloadBtn.TextColor3 = Color3.fromRGB(255, 120, 120)
+			shaderUnloadBtn.TextSize = 11
+			shaderUnloadBtn.Font = Enum.Font.GothamBold
+			shaderUnloadBtn.Parent = mainWindow
+
 			local scrollFrame = Instance.new("ScrollingFrame")
-			scrollFrame.Size = UDim2.new(1, -10, 1, -40)
-			scrollFrame.Position = UDim2.new(0, 5, 0, 35)
+			scrollFrame.Size = UDim2.new(1, -10, 1, -75)
+			scrollFrame.Position = UDim2.new(0, 5, 0, 68)
 			scrollFrame.BackgroundTransparency = 1
 			scrollFrame.ScrollBarThickness = 6
 			scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #shaderPresets * 45 + 10)
@@ -1348,6 +1359,28 @@ local function initMainScript()
 				end)
 			end
 
+			-- 쉐이더 창 내부 언로드 버튼 클릭 이벤트 (효과 및 UI 완전 제거)
+			shaderUnloadBtn.MouseButton1Click:Connect(function()
+				if shaderState.colorEffect then shaderState.colorEffect:Destroy(); shaderState.colorEffect = nil end
+				if shaderState.blurEffect then shaderState.blurEffect:Destroy(); shaderState.blurEffect = nil end
+				if shaderState.bloomEffect then shaderState.bloomEffect:Destroy(); shaderState.bloomEffect = nil end
+				if shaderState.snowPart then shaderState.snowPart:Destroy(); shaderState.snowPart = nil end
+				if shaderState.auroraPart then shaderState.auroraPart:Destroy(); shaderState.auroraPart = nil end
+				if shaderState.runConnection then shaderState.runConnection:Disconnect(); shaderState.runConnection = nil end
+				Lighting.ClockTime = shaderState.originalClockTime
+				shaderState.initialized = false
+
+				if window and window.Visible then
+					UserInputService.MouseIconEnabled = true
+					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				else
+					UserInputService.MouseIconEnabled = false
+					UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+				end
+
+				screenGui:Destroy()
+			end)
+
 			-- 드래그
 			local draggingShader = false
 			local dragInputShader, dragStartShader, startPosShader
@@ -1380,11 +1413,10 @@ local function initMainScript()
 			end)
 			trackConn(dragConn)
 
-			-- ★ 닫기 버튼: UI만 닫고 효과는 유지
+			-- ❌ 닫기 버튼: UI만 닫고 효과는 유지
 			closeButton.MouseButton1Click:Connect(function()
 				if dragConn then dragConn:Disconnect() end
 
-				-- 마우스 상태 복구 (메인 UI 상태에 맞춤)
 				if window and window.Visible then
 					UserInputService.MouseIconEnabled = true
 					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
@@ -1393,7 +1425,6 @@ local function initMainScript()
 					UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 				end
 
-				-- UI만 삭제 (효과/파티클/루프는 그대로 유지)
 				screenGui:Destroy()
 			end)
 		end
@@ -1562,7 +1593,6 @@ local function initMainScript()
 				local existingGamma = lighting:FindFirstChild("AntiRivalGamma")
 				if existingGamma then existingGamma:Destroy() end
 
-				-- 쉐이더 효과 완전 정리
 				if shaderState.colorEffect then shaderState.colorEffect:Destroy() end
 				if shaderState.blurEffect then shaderState.blurEffect:Destroy() end
 				if shaderState.bloomEffect then shaderState.bloomEffect:Destroy() end
@@ -2110,7 +2140,7 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.10 Enhanced & Loaded Successfully! (Custom Shader - Persistent Effects)")
+		print("Anti-rival beta v0.1.11 Enhanced & Loaded Successfully! (Custom Shader - Persistent Effects)")
 	end)
 end
 
@@ -2150,7 +2180,7 @@ else
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.10)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.11)</font>'
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
 	keyTitle.Parent = keyFrame
@@ -2161,7 +2191,7 @@ else
 	getKeyBtn.BackgroundColor3 = Color3.fromRGB(25, 40, 70)
 	getKeyBtn.BorderColor3 = Color3.fromRGB(50, 80, 130)
 	getKeyBtn.BorderSizePixel = 1
-	getKeyBtn.Text = "Get key (Linlvertise)"
+	getKeyBtn.Text = "Get Key (Work.ink)"
 	getKeyBtn.TextColor3 = Color3.fromRGB(100, 180, 255)
 	getKeyBtn.TextSize, getKeyBtn.Font = 11, Enum.Font.Code
 	getKeyBtn.Parent = keyFrame
