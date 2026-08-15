@@ -1,8 +1,8 @@
--- [Anti-rival beta v0.1.9.0 - Enhanced & Fixed Version with Packet Spoofing + GC Mod]
+-- [Anti-rival beta v0.1.10 - Enhanced & Fixed Version with Packet Spoofing + GC Mod + Custom Shader (Persistent Effects)]
 
 local KEY_SYSTEM_ENABLED = true
-local CORRECT_KEY = "uoaseranioaewfruo"
-local WORK_INK_URL = "https://work.ink/2MIg/anti-rival-free"
+local CORRECT_KEY = "fioaepuwroepawmpoipruijop"
+local WORK_INK_URL = "https://link-center.net/8373580/1QODzu8DuANE"
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -115,7 +115,6 @@ local function initMainScript()
 		env._rivRapidFire = false
 		env._rivNoRecoil = false
 
-		-- [수정] 타겟 탐색 함수 (가장 가까운 적 찾기 - 후킹 모듈에서 사용하기 위해 먼저 선언)
 		local function getBestTarget(fovLimit)
 			local currentCam = Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
 			local mousePos = UserInputService:GetMouseLocation()
@@ -141,12 +140,9 @@ local function initMainScript()
 			return bestTarget
 		end
 
-		-- 총기 모듈 및 메타테이블 후킹 (요청한 Packet 조작 및 쿨다운 삭제 적용)
 		pcall(function()
 			local modulesFolder = ReplicatedStorage:WaitForChild("Modules", 3)
 			if modulesFolder then
-				
-				-- 1. ClientItem 후킹 (Rapid Fire 구현: 쿨다운을 0으로 변조)
 				local clientItemModule = modulesFolder:WaitForChild("ClientItem", 3)
 				if clientItemModule then
 					local ClientItem = require(clientItemModule)
@@ -156,12 +152,12 @@ local function initMainScript()
 							if env._rivNoRecoil then
 								rawset(self.Info, "ShootRecoil", 0)
 								rawset(self.Info, "ShootSpread", 0)
-								rawset(self.Info, "ProjectileSpeed", 99999999)
+								rawset(self.Info, "ProjectileSpeed", 99999999999)
 							end
 							if env._rivRapidFire then
 								rawset(self.Info, "ShootCooldown", 0)
 								rawset(self.Info, "QuickShotCooldown", 0)
-								rawset(self.Info, "FireRate", 9999)
+								rawset(self.Info, "FireRate", 99999999)
 								rawset(self.Info, "Delay", 0)
 							end
 						end
@@ -169,7 +165,6 @@ local function initMainScript()
 					end)
 				end
 				
-				-- 2. Gun 모듈 후킹 (Fast ADS 구현: 조준 속도 999 반환)
 				local gunModule = modulesFolder:FindFirstChild("Gun") or modulesFolder:FindFirstChild("GunItem")
 				if gunModule then
 					local Gun = require(gunModule)
@@ -177,14 +172,13 @@ local function initMainScript()
 					if origGetAimSpeed then
 						rawset(Gun, "GetAimSpeed", function(...)
 							if env._rivRapidFire then
-								return 999 -- 즉발 수준으로 조준
+								return 999
 							end
 							return origGetAimSpeed(...)
 						end)
 					end
 				end
 
-				-- 3. GunItem 모듈 후킹 (Silent Aim & Ragebot 구현: StartShooting 패킷 조작)
 				local gunItemModule = modulesFolder:FindFirstChild("GunItem")
 				if gunItemModule then
 					local GunItem = require(gunItemModule)
@@ -196,17 +190,14 @@ local function initMainScript()
 								local targetRemote = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Replication") and ReplicatedStorage.Remotes.Replication:FindFirstChild("Fighter") and ReplicatedStorage.Remotes.Replication.Fighter:FindFirstChild("UseItem")
 								
 								if targetHead and targetRemote then
-									-- 내 총구 위치 계산
 									local myOrigin = (self.Weapon and self.Weapon:FindFirstChild("Muzzle") and self.Weapon.Muzzle.Position) or Workspace.CurrentCamera.CFrame.Position
 									
-									-- 카메라 데이터 강제 수정 및 난독화 키를 이용한 Spoofing
 									local spoofedCameraData = {}
-									spoofedCameraData[utf8.char(0)] = myOrigin         -- originStruct
-									spoofedCameraData[utf8.char(1)] = targetHead.CFrame  -- aimPart.CFrame
+									spoofedCameraData[utf8.char(0)] = myOrigin
+									spoofedCameraData[utf8.char(1)] = targetHead.CFrame
 
-									-- 변조된 데이터를 리모트 이벤트로 직접 쏩니다
 									targetRemote:FireServer(spoofedCameraData)
-									return -- 기존의 정상 발사 처리는 무시
+									return
 								end
 							end
 							return origStartShooting(self, ...)
@@ -216,7 +207,6 @@ local function initMainScript()
 			end
 		end)
 
-		-- 기존 Value 기반 쿨다운 조작 루프
 		task.spawn(function()
 			while true do
 				if env._rivRapidFire then
@@ -242,41 +232,23 @@ local function initMainScript()
 			end
 		end)
 
-		-- [추가된 부분] 게임 내 메모리(Garbage Collection)를 뒤져서 총기 스탯 테이블을 직접 변조하는 루프
 		task.spawn(function()
 			while true do
 				if env._rivRapidFire then
 					pcall(function()
 						for i, v in pairs(getgc(true)) do
 							if type(v) == "table" then
-								-- 테이블 안에 연사 속도와 관련된 키값이 존재하는지 확인
 								if rawget(v, "FireRate") or rawget(v, "Delay") or rawget(v, "ShootCooldown") then
-									
-									-- 값이 확인되면 딜레이를 없애기 위해 수치를 강제로 덮어쓰기
-									-- (주의: 0으로 설정, 안될 경우 9999로 수정하여 테스트 가능)
-									if rawget(v, "FireRate") then 
-										rawset(v, "FireRate", 0) 
-									end
-									if rawget(v, "Delay") then 
-										rawset(v, "Delay", 0) 
-									end
-									if rawget(v, "ShootCooldown") then 
-										rawset(v, "ShootCooldown", 0) 
-									end
-									
-									-- 단발 총기일 경우 자동으로 연사가 되도록 Auto 설정 켜기
-									if rawget(v, "Auto") ~= nil then 
-										rawset(v, "Auto", true) 
-									end
-									if rawget(v, "AutoFire") ~= nil then 
-										rawset(v, "AutoFire", true) 
-									end
+									if rawget(v, "FireRate") then rawset(v, "FireRate", 0) end
+									if rawget(v, "Delay") then rawset(v, "Delay", 0) end
+									if rawget(v, "ShootCooldown") then rawset(v, "ShootCooldown", 0) end
+									if rawget(v, "Auto") ~= nil then rawset(v, "Auto", true) end
+									if rawget(v, "AutoFire") ~= nil then rawset(v, "AutoFire", true) end
 								end
 							end
 						end
 					end)
 				end
-				-- 메모리를 전부 훑는 getgc()는 프레임 드랍을 유발할 수 있어 2초 간격으로 실행합니다.
 				task.wait(2)
 			end
 		end)
@@ -331,7 +303,6 @@ local function initMainScript()
 			end)
 		end))
 
-		-- [수정] Ragebot 로직 (서버로 직접 무차별 난사하던 것을, 툴 강제 클릭(자동 사격)으로 유도하여 StartShooting 후킹 발동)
 		local _rageConn = nil
 		env._riv_startRagebot = function(on)
 			if _rageConn then _rageConn:Disconnect(); _rageConn = nil end
@@ -356,7 +327,7 @@ local function initMainScript()
 					if targetHead then
 						for _, tool in ipairs(player.Character:GetChildren()) do
 							if tool:IsA("Tool") then
-								tool:Activate() -- 마우스 클릭 신호를 보내 StartShooting 후킹을 유도
+								tool:Activate()
 							end
 						end
 					end
@@ -519,7 +490,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.9.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.10 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -537,7 +508,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.9.0 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.10 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -564,7 +535,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.9.0)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.10)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -784,7 +755,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.9.0 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.10 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -1116,6 +1087,321 @@ local function initMainScript()
 		randomTpButton.TextSize, randomTpButton.Font = 10, Enum.Font.Code
 		randomTpButton.Parent = gVis1
 
+		-- ==========================================
+		-- Custom Shader (Persistent Effects)
+		-- ==========================================
+		local gVis2 = createGroupBox(visualsPage, "custom shader", UDim2.fromOffset(418, 70), UDim2.fromOffset(12, 230))
+		local customShaderButton = Instance.new("TextButton")
+		customShaderButton.Size = UDim2.new(1, -16, 0, 32)
+		customShaderButton.Position = UDim2.fromOffset(8, 22)
+		customShaderButton.BackgroundColor3 = Color3.fromRGB(30, 45, 75)
+		customShaderButton.BorderColor3 = Color3.fromRGB(50, 80, 130)
+		customShaderButton.BorderSizePixel = 1
+		customShaderButton.Text = "✨ OPEN CUSTOM SHADER MENU"
+		customShaderButton.TextColor3 = Color3.fromRGB(100, 180, 255)
+		customShaderButton.TextSize = 12
+		customShaderButton.Font = Enum.Font.Code
+		customShaderButton.Parent = gVis2
+
+		-- 쉐이더 효과 전역 상태 (창을 닫아도 유지)
+		local shaderState = {
+			colorEffect = nil,
+			blurEffect = nil,
+			bloomEffect = nil,
+			snowPart = nil,
+			snowEmitter = nil,
+			auroraPart = nil,
+			auroraEmitter = nil,
+			runConnection = nil,
+			originalClockTime = Lighting.ClockTime,
+			initialized = false
+		}
+
+		local function ensureShaderEffects()
+			local camera = Workspace.CurrentCamera
+			if not camera then return end
+
+			if not shaderState.colorEffect or not shaderState.colorEffect.Parent then
+				shaderState.colorEffect = Instance.new("ColorCorrectionEffect")
+				shaderState.colorEffect.Name = "ThemeColor"
+				shaderState.colorEffect.Enabled = false
+				shaderState.colorEffect.Parent = camera
+			end
+
+			if not shaderState.blurEffect or not shaderState.blurEffect.Parent then
+				shaderState.blurEffect = Instance.new("BlurEffect")
+				shaderState.blurEffect.Name = "ThemeBlur"
+				shaderState.blurEffect.Enabled = false
+				shaderState.blurEffect.Parent = camera
+			end
+
+			if not shaderState.bloomEffect or not shaderState.bloomEffect.Parent then
+				shaderState.bloomEffect = Instance.new("BloomEffect")
+				shaderState.bloomEffect.Name = "ThemeBloom"
+				shaderState.bloomEffect.Enabled = false
+				shaderState.bloomEffect.Parent = camera
+			end
+
+			if not shaderState.snowPart or not shaderState.snowPart.Parent then
+				shaderState.snowPart = Instance.new("Part")
+				shaderState.snowPart.Name = "LocalSnowPart"
+				shaderState.snowPart.Transparency = 1
+				shaderState.snowPart.CanCollide = false
+				shaderState.snowPart.Anchored = true
+				shaderState.snowPart.Size = Vector3.new(150, 2, 150)
+				shaderState.snowPart.Parent = camera
+
+				shaderState.snowEmitter = Instance.new("ParticleEmitter")
+				shaderState.snowEmitter.Enabled = false
+				shaderState.snowEmitter.Texture = "rbxassetid://144211124"
+				shaderState.snowEmitter.Rate = 150
+				shaderState.snowEmitter.Lifetime = NumberRange.new(4, 7)
+				shaderState.snowEmitter.Speed = NumberRange.new(15, 30)
+				shaderState.snowEmitter.EmissionDirection = Enum.NormalId.Bottom
+				shaderState.snowEmitter.Size = NumberSequence.new(0.2, 0.4)
+				shaderState.snowEmitter.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255))
+				shaderState.snowEmitter.Parent = shaderState.snowPart
+			end
+
+			if not shaderState.auroraPart or not shaderState.auroraPart.Parent then
+				shaderState.auroraPart = Instance.new("Part")
+				shaderState.auroraPart.Name = "LocalAuroraPart"
+				shaderState.auroraPart.Transparency = 1
+				shaderState.auroraPart.CanCollide = false
+				shaderState.auroraPart.Anchored = true
+				shaderState.auroraPart.Size = Vector3.new(300, 10, 300)
+				shaderState.auroraPart.Parent = camera
+
+				shaderState.auroraEmitter = Instance.new("ParticleEmitter")
+				shaderState.auroraEmitter.Enabled = false
+				shaderState.auroraEmitter.Texture = "rbxassetid://1328003666"
+				shaderState.auroraEmitter.Rate = 6
+				shaderState.auroraEmitter.Lifetime = NumberRange.new(15, 20)
+				shaderState.auroraEmitter.Speed = NumberRange.new(2, 5)
+				shaderState.auroraEmitter.EmissionDirection = Enum.NormalId.Right
+				shaderState.auroraEmitter.Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 30),
+					NumberSequenceKeypoint.new(0.5, 120),
+					NumberSequenceKeypoint.new(1, 40)
+				})
+				shaderState.auroraEmitter.Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1),
+					NumberSequenceKeypoint.new(0.3, 0.6),
+					NumberSequenceKeypoint.new(0.7, 0.6),
+					NumberSequenceKeypoint.new(1, 1)
+				})
+				shaderState.auroraEmitter.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 150)),
+					ColorSequenceKeypoint.new(0.5, Color3.fromRGB(150, 80, 255)),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 150))
+				})
+				shaderState.auroraEmitter.Parent = shaderState.auroraPart
+			end
+
+			-- 파티클 추적 루프 (한 번만 연결)
+			if not shaderState.runConnection then
+				shaderState.runConnection = RunService.RenderStepped:Connect(function()
+					local cam = Workspace.CurrentCamera
+					if not cam then return end
+					if shaderState.snowEmitter and shaderState.snowEmitter.Enabled and shaderState.snowPart then
+						shaderState.snowPart.CFrame = cam.CFrame * CFrame.new(0, 40, -10)
+					end
+					if shaderState.auroraEmitter and shaderState.auroraEmitter.Enabled and shaderState.auroraPart then
+						shaderState.auroraPart.CFrame = cam.CFrame * CFrame.new(0, 150, -100)
+					end
+				end)
+				trackConn(shaderState.runConnection)
+			end
+
+			shaderState.initialized = true
+		end
+
+		local function launchCustomShader()
+			-- 이미 메뉴가 열려있으면 무시
+			if player.PlayerGui:FindFirstChild("ShaderMenuGui") then
+				return
+			end
+
+			ensureShaderEffects()
+
+			UserInputService.MouseIconEnabled = true
+			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+
+			local colorEffect = shaderState.colorEffect
+			local blurEffect = shaderState.blurEffect
+			local bloomEffect = shaderState.bloomEffect
+			local snowEmitter = shaderState.snowEmitter
+			local auroraEmitter = shaderState.auroraEmitter
+			local originalClockTime = shaderState.originalClockTime
+
+			local shaderPresets = {
+				{ Name = "원본 (OFF)", Color = {Enabled = false}, Blur = {Enabled = false}, Bloom = {Enabled = false} },
+				{ Name = "과거 회상 (세피아)", Color = {Enabled = true, Brightness = 0, Contrast = 0.2, Saturation = -0.6, TintColor = Color3.fromRGB(255, 210, 160)}, Blur = {Enabled = true, Size = 8}, Bloom = {Enabled = false} },
+				{ Name = "몽환적인 꿈", Color = {Enabled = true, Brightness = 0.1, Contrast = 0.1, Saturation = 0.4, TintColor = Color3.fromRGB(255, 240, 255)}, Blur = {Enabled = false}, Bloom = {Enabled = true, Intensity = 0.8, Size = 24, Threshold = 1} },
+				{ Name = "차가운 밤", Color = {Enabled = true, Brightness = -0.15, Contrast = 0.3, Saturation = -0.4, TintColor = Color3.fromRGB(130, 150, 255)}, Blur = {Enabled = false}, Bloom = {Enabled = false} },
+				{ Name = "브레인롯 (폭주)", Color = {Enabled = true, Brightness = 0.1, Contrast = 0.6, Saturation = 2.5, TintColor = Color3.fromRGB(255, 100, 255)}, Blur = {Enabled = false}, Bloom = {Enabled = true, Intensity = 1, Size = 15, Threshold = 0.5} },
+				{ Name = "네더의 열기 (용광로)", Color = {Enabled = true, Brightness = 0.05, Contrast = 0.5, Saturation = 0.8, TintColor = Color3.fromRGB(255, 80, 20)}, Blur = {Enabled = true, Size = 4}, Bloom = {Enabled = true, Intensity = 1.2, Size = 30, Threshold = 0.8} },
+				{ Name = "흑백 영화 (모노톤)", Color = {Enabled = true, Brightness = 0, Contrast = 0.6, Saturation = -1, TintColor = Color3.fromRGB(255, 255, 255)}, Blur = {Enabled = false}, Bloom = {Enabled = false} },
+				{ Name = "사이버펑크", Color = {Enabled = true, Brightness = -0.1, Contrast = 0.7, Saturation = 1.2, TintColor = Color3.fromRGB(100, 200, 255)}, Blur = {Enabled = false}, Bloom = {Enabled = true, Intensity = 1.5, Size = 20, Threshold = 1.5} },
+				{ Name = "블리자드 (눈보라)", Color = {Enabled = true, Brightness = 0.1, Contrast = 0.1, Saturation = -0.5, TintColor = Color3.fromRGB(220, 240, 255)}, Blur = {Enabled = true, Size = 3}, Bloom = {Enabled = true, Intensity = 0.3, Size = 15, Threshold = 1}, Snow = true },
+				{ Name = "우주의 밤 (눈보라)", Color = {Enabled = true, Brightness = 0.05, Contrast = 0.2, Saturation = -0.3, TintColor = Color3.fromRGB(220, 230, 255)}, Blur = {Enabled = false}, Bloom = {Enabled = true, Intensity = 0.5, Size = 10, Threshold = 1.5}, CustomTime = 0, Snow = true },
+				{ Name = "오로라의 밤", Color = {Enabled = true, Brightness = 0.05, Contrast = 0.3, Saturation = 0.2, TintColor = Color3.fromRGB(200, 255, 220)}, Blur = {Enabled = false}, Bloom = {Enabled = true, Intensity = 0.6, Size = 20, Threshold = 1.2}, CustomTime = 0, Snow = false, Aurora = true }
+			}
+
+			local screenGui = Instance.new("ScreenGui")
+			screenGui.Name = "ShaderMenuGui"
+			screenGui.ResetOnSpawn = false
+			screenGui.Parent = player:WaitForChild("PlayerGui")
+
+			local modalBg = Instance.new("TextButton")
+			modalBg.Size = UDim2.new(1, 0, 1, 0)
+			modalBg.BackgroundTransparency = 1
+			modalBg.Text = ""
+			modalBg.Modal = true
+			modalBg.ZIndex = -1
+			modalBg.Parent = screenGui
+
+			local mainWindow = Instance.new("Frame")
+			mainWindow.Size = UDim2.new(0, 240, 0, 350)
+			mainWindow.Position = UDim2.new(0.8, -250, 0.5, -175)
+			mainWindow.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+			mainWindow.Active = true
+			mainWindow.Parent = screenGui
+
+			local windowCorner = Instance.new("UICorner")
+			windowCorner.CornerRadius = UDim.new(0, 8)
+			windowCorner.Parent = mainWindow
+
+			local titleBar = Instance.new("TextLabel")
+			titleBar.Size = UDim2.new(1, -30, 0, 30)
+			titleBar.BackgroundTransparency = 1
+			titleBar.Text = "✨ 쉐이더 설정"
+			titleBar.TextColor3 = Color3.fromRGB(200, 200, 200)
+			titleBar.Font = Enum.Font.GothamBold
+			titleBar.TextSize = 14
+			titleBar.Parent = mainWindow
+
+			local closeButton = Instance.new("TextButton")
+			closeButton.Size = UDim2.new(0, 30, 0, 30)
+			closeButton.Position = UDim2.new(1, -30, 0, 0)
+			closeButton.BackgroundTransparency = 1
+			closeButton.Text = "❌"
+			closeButton.TextSize = 14
+			closeButton.Parent = mainWindow
+
+			local scrollFrame = Instance.new("ScrollingFrame")
+			scrollFrame.Size = UDim2.new(1, -10, 1, -40)
+			scrollFrame.Position = UDim2.new(0, 5, 0, 35)
+			scrollFrame.BackgroundTransparency = 1
+			scrollFrame.ScrollBarThickness = 6
+			scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #shaderPresets * 45 + 10)
+			scrollFrame.Parent = mainWindow
+
+			local layout = Instance.new("UIListLayout")
+			layout.SortOrder = Enum.SortOrder.LayoutOrder
+			layout.Padding = UDim.new(0, 5)
+			layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+			layout.Parent = scrollFrame
+
+			for i, preset in ipairs(shaderPresets) do
+				local btn = Instance.new("TextButton")
+				btn.Size = UDim2.new(1, -15, 0, 35)
+				btn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+				btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+				btn.Font = Enum.Font.GothamSemibold
+				btn.TextSize = 14
+				btn.Text = preset.Name
+				btn.LayoutOrder = i
+				
+				local btnCorner = Instance.new("UICorner")
+				btnCorner.CornerRadius = UDim.new(0, 6)
+				btnCorner.Parent = btn
+				btn.Parent = scrollFrame
+
+				btn.MouseButton1Click:Connect(function()
+					colorEffect.Enabled = preset.Color.Enabled
+					if preset.Color.Enabled then
+						colorEffect.Brightness = preset.Color.Brightness
+						colorEffect.Contrast = preset.Color.Contrast
+						colorEffect.Saturation = preset.Color.Saturation
+						colorEffect.TintColor = preset.Color.TintColor
+					end
+					
+					blurEffect.Enabled = preset.Blur.Enabled
+					if preset.Blur.Enabled then blurEffect.Size = preset.Blur.Size end
+					
+					bloomEffect.Enabled = preset.Bloom.Enabled
+					if preset.Bloom.Enabled then
+						bloomEffect.Intensity = preset.Bloom.Intensity
+						bloomEffect.Size = preset.Bloom.Size
+						bloomEffect.Threshold = preset.Bloom.Threshold
+					end
+					
+					if preset.CustomTime then
+						Lighting.ClockTime = preset.CustomTime
+					else
+						Lighting.ClockTime = originalClockTime
+					end
+					
+					snowEmitter.Enabled = preset.Snow or false
+					auroraEmitter.Enabled = preset.Aurora or false
+				end)
+			end
+
+			-- 드래그
+			local draggingShader = false
+			local dragInputShader, dragStartShader, startPosShader
+
+			mainWindow.InputBegan:Connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+					draggingShader = true
+					dragStartShader = input.Position
+					startPosShader = mainWindow.Position
+					
+					input.Changed:Connect(function()
+						if input.UserInputState == Enum.UserInputState.End then
+							draggingShader = false
+						end
+					end)
+				end
+			end)
+
+			mainWindow.InputChanged:Connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+					dragInputShader = input
+				end
+			end)
+
+			local dragConn = UserInputService.InputChanged:Connect(function(input)
+				if input == dragInputShader and draggingShader then
+					local delta = input.Position - dragStartShader
+					mainWindow.Position = UDim2.new(startPosShader.X.Scale, startPosShader.X.Offset + delta.X, startPosShader.Y.Scale, startPosShader.Y.Offset + delta.Y)
+				end
+			end)
+			trackConn(dragConn)
+
+			-- ★ 닫기 버튼: UI만 닫고 효과는 유지
+			closeButton.MouseButton1Click:Connect(function()
+				if dragConn then dragConn:Disconnect() end
+
+				-- 마우스 상태 복구 (메인 UI 상태에 맞춤)
+				if window and window.Visible then
+					UserInputService.MouseIconEnabled = true
+					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				else
+					UserInputService.MouseIconEnabled = false
+					UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+				end
+
+				-- UI만 삭제 (효과/파티클/루프는 그대로 유지)
+				screenGui:Destroy()
+			end)
+		end
+
+		customShaderButton.MouseButton1Click:Connect(function()
+			launchCustomShader()
+		end)
+
 		local gChar1 = createGroupBox(characterPage, "character capability", UDim2.fromOffset(418, 120), UDim2.fromOffset(12, 12))
 		local infiniteJumpButton = toggle(gChar1, "infinite jump", UDim2.fromOffset(8, 18))
 
@@ -1275,6 +1561,18 @@ local function initMainScript()
 				local lighting = Lighting
 				local existingGamma = lighting:FindFirstChild("AntiRivalGamma")
 				if existingGamma then existingGamma:Destroy() end
+
+				-- 쉐이더 효과 완전 정리
+				if shaderState.colorEffect then shaderState.colorEffect:Destroy() end
+				if shaderState.blurEffect then shaderState.blurEffect:Destroy() end
+				if shaderState.bloomEffect then shaderState.bloomEffect:Destroy() end
+				if shaderState.snowPart then shaderState.snowPart:Destroy() end
+				if shaderState.auroraPart then shaderState.auroraPart:Destroy() end
+				if shaderState.runConnection then shaderState.runConnection:Disconnect() end
+				Lighting.ClockTime = shaderState.originalClockTime
+
+				local shaderGui = player.PlayerGui:FindFirstChild("ShaderMenuGui")
+				if shaderGui then shaderGui:Destroy() end
 
 				if gui then gui:Destroy() end
 				if keybindGui then keybindGui:Destroy() end
@@ -1792,7 +2090,7 @@ local function initMainScript()
 
 		espButton.MouseButton1Click:Connect(function() if toggleEsp then toggleEsp(not espOn) end end)
 		namesButton.MouseButton1Click:Connect(function() namesOn = not namesOn; setToggle(namesButton, namesOn, "player names") end)
-		healthButton.MouseButton1Click:Connect(function() healthOn = not healthOn; setToggle(healthOn, healthOn, "player health text") end)
+		healthButton.MouseButton1Click:Connect(function() healthOn = not healthOn; setToggle(healthButton, healthOn, "player health text") end)
 
 		infiniteJumpButton.MouseButton1Click:Connect(function() infiniteJumpOn = not infiniteJumpOn; setToggle(infiniteJumpButton, infiniteJumpOn, "infinite jump") end)
 
@@ -1812,7 +2110,7 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.9.0 Enhanced & Loaded Successfully!")
+		print("Anti-rival beta v0.1.10 Enhanced & Loaded Successfully! (Custom Shader - Persistent Effects)")
 	end)
 end
 
@@ -1852,7 +2150,7 @@ else
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.9.0)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.10)</font>'
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
 	keyTitle.Parent = keyFrame
@@ -1863,7 +2161,7 @@ else
 	getKeyBtn.BackgroundColor3 = Color3.fromRGB(25, 40, 70)
 	getKeyBtn.BorderColor3 = Color3.fromRGB(50, 80, 130)
 	getKeyBtn.BorderSizePixel = 1
-	getKeyBtn.Text = "Get Key (Work.ink)"
+	getKeyBtn.Text = "Get key (Linlvertise)"
 	getKeyBtn.TextColor3 = Color3.fromRGB(100, 180, 255)
 	getKeyBtn.TextSize, getKeyBtn.Font = 11, Enum.Font.Code
 	getKeyBtn.Parent = keyFrame
