@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.12 - Enhanced & Fixed Version with Packet Spoofing + GC Mod + Custom Shader (Persistent Effects) + Silent Aim Fix]
+-- [Anti-rival beta v0.1.13 - Enhanced & Fixed Version with Packet Spoofing + GC Mod + Custom Shader (Persistent Effects) + Silent Aim + Triggerbot Rivals Fix]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "efairpawfaurfuioasernegawr"
@@ -145,77 +145,96 @@ local function initMainScript()
 		end
 
 		pcall(function()
-			local modulesFolder = ReplicatedStorage:WaitForChild("Modules", 3)
+			local modulesFolder = ReplicatedStorage:WaitForChild("Modules", 5)
 			if modulesFolder then
-				local clientItemModule = modulesFolder:WaitForChild("ClientItem", 3)
+				local clientItemModule = modulesFolder:FindFirstChild("ClientItem")
 				if clientItemModule then
-					local ClientItem = require(clientItemModule)
-					local origInput = rawget(ClientItem, "Input") or ClientItem.Input
-					rawset(ClientItem, "Input", function(self, ...)
-						if self and type(self) == "table" and self.Info then
-							if env._rivNoRecoil then
-								rawset(self.Info, "ShootRecoil", 0)
-								rawset(self.Info, "ShootSpread", 0)
-								rawset(self.Info, "ProjectileSpeed", 99999999999)
-							end
-							if env._rivRapidFire then
-								rawset(self.Info, "ShootCooldown", 0)
-								rawset(self.Info, "QuickShotCooldown", 0)
-								rawset(self.Info, "FireRate", 99999999)
-								rawset(self.Info, "Delay", 0)
-							end
+					local ok, ClientItem = pcall(require, clientItemModule)
+					if ok and ClientItem then
+						local origInput = rawget(ClientItem, "Input") or ClientItem.Input
+						if origInput then
+							rawset(ClientItem, "Input", function(self, ...)
+								if self and type(self) == "table" and self.Info then
+									if env._rivNoRecoil then
+										pcall(function()
+											rawset(self.Info, "ShootRecoil", 0)
+											rawset(self.Info, "ShootSpread", 0)
+											rawset(self.Info, "ProjectileSpeed", 99999999999)
+										end)
+									end
+									if env._rivRapidFire then
+										pcall(function()
+											rawset(self.Info, "ShootCooldown", 0)
+											rawset(self.Info, "QuickShotCooldown", 0)
+											rawset(self.Info, "FireRate", 99999999)
+											rawset(self.Info, "Delay", 0)
+										end)
+									end
+								end
+								return origInput(self, ...)
+							end)
 						end
-						return origInput(self, ...)
-					end)
+					end
 				end
 				
 				local gunModule = modulesFolder:FindFirstChild("Gun") or modulesFolder:FindFirstChild("GunItem")
 				if gunModule then
-					local Gun = require(gunModule)
-					local origGetAimSpeed = rawget(Gun, "GetAimSpeed") or Gun.GetAimSpeed
-					if origGetAimSpeed then
-						rawset(Gun, "GetAimSpeed", function(...)
-							if env._rivRapidFire then
-								return 999
-							end
-							return origGetAimSpeed(...)
-						end)
+					local ok, Gun = pcall(require, gunModule)
+					if ok and Gun then
+						local origGetAimSpeed = rawget(Gun, "GetAimSpeed") or Gun.GetAimSpeed
+						if origGetAimSpeed then
+							rawset(Gun, "GetAimSpeed", function(...)
+								if env._rivRapidFire then
+									return 999
+								end
+								return origGetAimSpeed(...)
+							end)
+						end
 					end
 				end
 
+				-- Improved Silent Aim: Hook StartShooting + UseItem path used by Rivals
 				local gunItemModule = modulesFolder:FindFirstChild("GunItem")
 				if gunItemModule then
-					local GunItem = require(gunItemModule)
-					local origStartShooting = rawget(GunItem, "StartShooting") or GunItem.StartShooting
-					if origStartShooting then
-						rawset(GunItem, "StartShooting", function(self, ...)
-							if env._silentRageActive or env._ragebotActive or silentAimOn then
-								local fov = env._ragebotActive and 250 or 180
-								local targetHead = env._silentAimTarget or getBestTarget(fov)
-								
-								local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-								local targetRemote = remotes and remotes:FindFirstChild("Replication") and remotes.Replication:FindFirstChild("Fighter") and remotes.Replication.Fighter:FindFirstChild("UseItem")
-								
-								if targetHead and targetRemote then
-									local cam = Workspace.CurrentCamera
-									local myOrigin = (self.Weapon and self.Weapon:FindFirstChild("Muzzle") and self.Weapon.Muzzle.Position) or (cam and cam.CFrame.Position) or Vector3.zero
-									
-									local spoofedCameraData = {}
-									spoofedCameraData[utf8.char(0)] = myOrigin
-									spoofedCameraData[utf8.char(1)] = targetHead.CFrame
-
-									pcall(function()
-										targetRemote:FireServer(spoofedCameraData)
-									end)
-									return
+					local ok, GunItem = pcall(require, gunItemModule)
+					if ok and GunItem then
+						local origStartShooting = rawget(GunItem, "StartShooting") or GunItem.StartShooting
+						if origStartShooting then
+							rawset(GunItem, "StartShooting", function(self, ...)
+								if silentAimOn or env._ragebotActive or env._silentRageActive then
+									local fov = env._ragebotActive and 300 or 200
+									local targetHead = env._silentAimTarget or getBestTarget(fov)
+									if targetHead then
+										-- Soft camera redirect so server ray matches (helps registration)
+										pcall(function()
+											local cam = Workspace.CurrentCamera
+											if cam then
+												cam.CFrame = CFrame.new(cam.CFrame.Position, targetHead.Position)
+											end
+										end)
+										-- Also try classic spoof if remote exists
+										pcall(function()
+											local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+											local targetRemote = remotes and remotes:FindFirstChild("Replication") and remotes.Replication:FindFirstChild("Fighter") and remotes.Replication.Fighter:FindFirstChild("UseItem")
+											if targetRemote then
+												local cam = Workspace.CurrentCamera
+												local myOrigin = (self.Weapon and self.Weapon:FindFirstChild("Muzzle") and self.Weapon.Muzzle.Position) or (cam and cam.CFrame.Position) or Vector3.zero
+												local spoofed = {}
+												spoofed[utf8.char(0)] = myOrigin
+												spoofed[utf8.char(1)] = targetHead.CFrame
+												targetRemote:FireServer(spoofed)
+											end
+										end)
+									end
 								end
-							end
-							return origStartShooting(self, ...)
-						end)
+								return origStartShooting(self, ...)
+							end)
+						end
 					end
 				end
 			end
 		end)
+
 
 		task.spawn(function()
 			while true do
@@ -283,6 +302,31 @@ local function initMainScript()
 			return conn
 		end
 
+		-- Silent aim: while holding mouse1, keep camera directed at target (helps hit registration)
+		local silentMouseDown = false
+		trackConn(UserInputService.InputBegan:Connect(function(input, gp)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				silentMouseDown = true
+			end
+		end))
+		trackConn(UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				silentMouseDown = false
+			end
+		end))
+		trackConn(RunService.RenderStepped:Connect(function()
+			if not silentAimOn or not silentMouseDown then return end
+			pcall(function()
+				local target = env._silentAimTarget or getBestTarget(200)
+				if target then
+					local cam = Workspace.CurrentCamera
+					if cam then
+						cam.CFrame = CFrame.new(cam.CFrame.Position, target.Position)
+					end
+				end
+			end)
+		end))
+
 		local function _tcAddConsumer()
 			_tcConsumers = _tcConsumers + 1
 			if fovCircle and _tcConsumers > 0 then fovCircle.Visible = true end
@@ -307,7 +351,7 @@ local function initMainScript()
 				return
 			end
 			pcall(function()
-				local targetHead = getBestTarget(150)
+				local targetHead = getBestTarget(220)
 				env._silentRageActive = targetHead ~= nil
 				env._silentAimTarget = targetHead
 			end)
@@ -500,7 +544,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.12 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.13 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -518,7 +562,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.12 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.13 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -545,7 +589,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.12)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.13)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -765,7 +809,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.12 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.13 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -1952,28 +1996,35 @@ local function initMainScript()
 		trackConn(RunService.RenderStepped:Connect(function()
 			if not triggerBotOn then return end
 			local now = os.clock()
-			if now - lastTriggerCheck < 0.05 then return end
+			if now - lastTriggerCheck < 0.03 then return end
 			lastTriggerCheck = now
 
 			pcall(function()
+				local char = player.Character
+				if not char then return end
 				local currentCam = getActiveCamera()
-				local mouseLocation = UserInputService:GetMouseLocation()
-				local unitRay = currentCam:ScreenPointToRay(mouseLocation.X, mouseLocation.Y)
+				if not currentCam then return end
+
+				-- Ray from camera center (crosshair) - more reliable for FPS
+				local unitRay = currentCam:ViewportPointToRay(currentCam.ViewportSize.X / 2, currentCam.ViewportSize.Y / 2)
 				local raycastParams = RaycastParams.new()
-				raycastParams.FilterType = RaycastType.Include
-				local includeList = {}
-				for _, p in ipairs(Players:GetPlayers()) do
-					if p ~= player and p.Character then table.insert(includeList, p.Character) end
-				end
-				raycastParams.FilterDescendantsInstances = includeList
-				local raycastResult = Workspace:Raycast(unitRay.Origin, unitRay.Direction * 10000, raycastParams)
-				if raycastResult and raycastResult.Instance then
-					local hitChar = raycastResult.Instance.Parent
-					local hum = hitChar:FindFirstChildOfClass("Humanoid")
-					local p = Players:GetPlayerFromCharacter(hitChar)
-					if hum and hum.Health > 0 and p and p ~= player then
-						for _, tool in ipairs(player.Character:GetChildren()) do
-							if tool:IsA("Tool") then tool:Activate() end
+				raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+				raycastParams.FilterDescendantsInstances = {char}
+				raycastParams.IgnoreWater = true
+
+				local raycastResult = Workspace:Raycast(unitRay.Origin, unitRay.Direction * 2000, raycastParams)
+				if not raycastResult or not raycastResult.Instance then return end
+
+				local hit = raycastResult.Instance
+				local model = hit:FindFirstAncestorOfClass("Model") or hit.Parent
+				if not model then return end
+
+				local hum = model:FindFirstChildOfClass("Humanoid")
+				local p = Players:GetPlayerFromCharacter(model)
+				if hum and hum.Health > 0 and p and p ~= player then
+					for _, tool in ipairs(char:GetChildren()) do
+						if tool:IsA("Tool") then
+							tool:Activate()
 						end
 					end
 				end
@@ -2123,7 +2174,7 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.12 Enhanced & Loaded Successfully! (Custom Shader - Persistent Effects)")
+		print("Anti-rival beta v0.1.13 Enhanced & Loaded Successfully! (Silent Aim + Triggerbot Rivals Fix)")
 	end)
 end
 
@@ -2163,7 +2214,7 @@ else
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.12)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.13)</font>'
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
 	keyTitle.Parent = keyFrame
