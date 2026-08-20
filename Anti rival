@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.13 - Enhanced & Fixed Version with Packet Spoofing + GC Mod + Custom Shader (Persistent Effects) + Silent Aim + Triggerbot Rivals Fix]
+-- [Anti-rival beta v0.1.15 재배포 금지]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "efairpawfaurfuioasernegawr"
@@ -96,6 +96,10 @@ local function initMainScript()
 		local walkOn, fightOn, espOn, namesOn, healthOn, noclipOn = false, false, false, false, false, false
 		local aimbotOn = false
 		local silentAimOn = false
+		local silentAimFOV = 350
+		local silentAimTargetMode = "Both" -- "Players" | "Dummies" | "Both"
+		local silentAimHitPart = "Body" -- "Head" | "Body"
+
 		local ragebotOn = false
 		local auraOn = false
 		local triggerBotOn = false
@@ -201,32 +205,6 @@ local function initMainScript()
 						local origStartShooting = rawget(GunItem, "StartShooting") or GunItem.StartShooting
 						if origStartShooting then
 							rawset(GunItem, "StartShooting", function(self, ...)
-								if silentAimOn or env._ragebotActive or env._silentRageActive then
-									local fov = env._ragebotActive and 300 or 200
-									local targetHead = env._silentAimTarget or getBestTarget(fov)
-									if targetHead then
-										-- Soft camera redirect so server ray matches (helps registration)
-										pcall(function()
-											local cam = Workspace.CurrentCamera
-											if cam then
-												cam.CFrame = CFrame.new(cam.CFrame.Position, targetHead.Position)
-											end
-										end)
-										-- Also try classic spoof if remote exists
-										pcall(function()
-											local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-											local targetRemote = remotes and remotes:FindFirstChild("Replication") and remotes.Replication:FindFirstChild("Fighter") and remotes.Replication.Fighter:FindFirstChild("UseItem")
-											if targetRemote then
-												local cam = Workspace.CurrentCamera
-												local myOrigin = (self.Weapon and self.Weapon:FindFirstChild("Muzzle") and self.Weapon.Muzzle.Position) or (cam and cam.CFrame.Position) or Vector3.zero
-												local spoofed = {}
-												spoofed[utf8.char(0)] = myOrigin
-												spoofed[utf8.char(1)] = targetHead.CFrame
-												targetRemote:FireServer(spoofed)
-											end
-										end)
-									end
-								end
 								return origStartShooting(self, ...)
 							end)
 						end
@@ -288,7 +266,7 @@ local function initMainScript()
 			if Drawing then
 				fovCircle = Drawing.new("Circle")
 				fovCircle.Visible = false
-				fovCircle.Radius = 120
+				fovCircle.Radius = silentAimFOV
 				fovCircle.Color = Color3.fromRGB(255, 255, 255)
 				fovCircle.Thickness = 1
 				fovCircle.Filled = false
@@ -302,30 +280,140 @@ local function initMainScript()
 			return conn
 		end
 
-		-- Silent aim: while holding mouse1, keep camera directed at target (helps hit registration)
-		local silentMouseDown = false
-		trackConn(UserInputService.InputBegan:Connect(function(input, gp)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				silentMouseDown = true
+		-- ============================================================
+		-- SILENT AIM v4 (Utility.Raycast) - dummies + players
+		-- No camera snap (fixes Ctrl slide left/right bug)
+		-- ============================================================
+		local CollectionService = game:GetService("CollectionService")
+		local _saCachedPart = nil
+		local _saCacheTime = 0
+		local BodyPartsList = { "HitboxBody", "UpperTorso", "HumanoidRootPart", "Torso", "HitboxBodySmall", "FakeMass" }
+		local HeadPartsList = { "HitboxHead", "Head" }
+
+		local function _saPickPart(model)
+			local order
+			if silentAimHitPart == "Head" then
+				order = { HeadPartsList, BodyPartsList }
+			else
+				order = { BodyPartsList, HeadPartsList }
 			end
-		end))
-		trackConn(UserInputService.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				silentMouseDown = false
+			for _, list in ipairs(order) do
+				for _, name in ipairs(list) do
+					local p = model:FindFirstChild(name)
+					if p and p:IsA("BasePart") then return p end
+				end
 			end
-		end))
-		trackConn(RunService.RenderStepped:Connect(function()
-			if not silentAimOn or not silentMouseDown then return end
-			pcall(function()
-				local target = env._silentAimTarget or getBestTarget(200)
-				if target then
-					local cam = Workspace.CurrentCamera
-					if cam then
-						cam.CFrame = CFrame.new(cam.CFrame.Position, target.Position)
+			for _, d in ipairs(model:GetChildren()) do
+				if d:IsA("BasePart") then return d end
+			end
+			return nil
+		end
+
+		local function _saCollectModels()
+			local models, seen = {}, {}
+			local function add(model)
+				if model and not seen[model] and model ~= player.Character then
+					seen[model] = true
+					table.insert(models, model)
+				end
+			end
+			local mode = silentAimTargetMode
+			if mode == "Players" or mode == "Both" then
+				for _, plr in ipairs(Players:GetPlayers()) do
+					if plr ~= player and plr.Character then add(plr.Character) end
+				end
+			end
+			if mode == "Dummies" or mode == "Both" then
+				pcall(function()
+					for _, e in ipairs(CollectionService:GetTagged("Entity")) do
+						local isPlr = Players:GetPlayerFromCharacter(e)
+						if not isPlr then add(e) end
+					end
+				end)
+				for _, inst in ipairs(Workspace:GetChildren()) do
+					if inst:IsA("Model") and inst:FindFirstChildOfClass("Humanoid") then
+						if not Players:GetPlayerFromCharacter(inst) then add(inst) end
+					end
+					if inst:IsA("Folder") or inst:IsA("Model") then
+						for _, child in ipairs(inst:GetChildren()) do
+							if child:IsA("Model") and child:FindFirstChildOfClass("Humanoid") then
+								if not Players:GetPlayerFromCharacter(child) then add(child) end
+							end
+						end
 					end
 				end
+			end
+			return models
+		end
+
+		local function _saGetClosestPart()
+			local now = os.clock()
+			if _saCachedPart and _saCachedPart.Parent and (now - _saCacheTime) < 0.03 then
+				return _saCachedPart
+			end
+			local cam = Workspace.CurrentCamera
+			if not cam then return nil end
+			local best, bestDist = nil, silentAimFOV
+			local center = cam.ViewportSize / 2
+			for _, model in ipairs(_saCollectModels()) do
+				local hum = model:FindFirstChildOfClass("Humanoid")
+				if not hum or hum.Health <= 0 then continue end
+				local part = _saPickPart(model)
+				if not part then continue end
+				local ok, sp, onScreen = pcall(function()
+					return cam:WorldToViewportPoint(part.Position)
+				end)
+				if ok and onScreen then
+					local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+					if d < bestDist then
+						bestDist = d
+						best = part
+					end
+				end
+			end
+			_saCachedPart = best
+			_saCacheTime = now
+			env._silentAimTarget = best
+			env._silentRageActive = best ~= nil and silentAimOn
+			return best
+		end
+
+		local function _saVelocity(part)
+			local v = Vector3.zero
+			pcall(function() v = part.AssemblyLinearVelocity end)
+			if v.Magnitude < 0.05 then pcall(function() v = part.Velocity end) end
+			return v
+		end
+
+		pcall(function()
+			local Utility = require(ReplicatedStorage:WaitForChild("Modules", 5):WaitForChild("Utility", 5))
+			if not Utility or not Utility.Raycast then
+				warn("[Anti-rival] Utility.Raycast not found")
+				return
+			end
+			if type(hookfunction) ~= "function" then
+				warn("[Anti-rival] hookfunction not supported")
+				return
+			end
+			local oldRaycast
+			oldRaycast = hookfunction(Utility.Raycast, function(self, origin, target, distance, filter, ...)
+				if silentAimOn and not checkcaller() then
+					if type(distance) == "number" and distance >= 50 then
+						local part = _saGetClosestPart()
+						if part and typeof(origin) == "Vector3" then
+							local dist = (part.Position - origin).Magnitude
+							local pred = 0.05 + math.clamp(dist / 500, 0, 0.1)
+							local pos = part.Position + _saVelocity(part) * pred
+							return oldRaycast(self, origin, pos, distance, filter, ...)
+						end
+					end
+				end
+				return oldRaycast(self, origin, target, distance, filter, ...)
 			end)
-		end))
+			print("[Anti-rival] Silent Aim v4 Utility.Raycast hooked")
+		end)
+
+
 
 		local function _tcAddConsumer()
 			_tcConsumers = _tcConsumers + 1
@@ -341,21 +429,11 @@ local function initMainScript()
 				local success, mousePos = pcall(function() return UserInputService:GetMouseLocation() end)
 				if success and mousePos then
 					fovCircle.Position = mousePos
+					fovCircle.Radius = silentAimFOV
 				end
 			end
 		end))
 
-		trackConn(RunService.RenderStepped:Connect(function()
-			if not silentAimOn then
-				env._silentRageActive = false
-				return
-			end
-			pcall(function()
-				local targetHead = getBestTarget(220)
-				env._silentRageActive = targetHead ~= nil
-				env._silentAimTarget = targetHead
-			end)
-		end))
 
 		local _rageConn = nil
 		env._riv_startRagebot = function(on)
@@ -544,7 +622,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.13 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.15 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -562,7 +640,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.13 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.15 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -589,7 +667,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.13)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.15)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -809,7 +887,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.13 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.15 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -1036,7 +1114,7 @@ local function initMainScript()
 		end)
 		local fightButton = toggle(gMain1, "fight mode", UDim2.fromOffset(8, 126))
 
-		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 410), UDim2.fromOffset(12, 192))
+		local gMain2 = createGroupBox(mainPage, "combat features", UDim2.fromOffset(418, 560), UDim2.fromOffset(12, 192))
 		local aimbotButton = toggle(gMain2, "aimbot", UDim2.fromOffset(8, 22))
 
 		local targetListContainer = Instance.new("ScrollingFrame")
@@ -1104,13 +1182,91 @@ local function initMainScript()
 		refreshTargetList()
 
 		local silentAimButton = toggle(gMain2, "silent aim", UDim2.fromOffset(8, 158))
-		local ragebotButton = toggle(gMain2, "ragebot", UDim2.fromOffset(8, 188))
-		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 218))
-		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 248))
-		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 278))
+
+		local silentFovSlider = createSlider(gMain2, "silent FOV", 1, 5000, silentAimFOV, UDim2.fromOffset(8, 184), function(val)
+			silentAimFOV = val
+			if fovCircle then fovCircle.Radius = val end
+		end)
+
+		-- Target mode: Players / Dummies / Both
+		local function makeSmallBtn(parent, text, pos, w)
+			local b = Instance.new("TextButton")
+			b.Size = UDim2.fromOffset(w, 22)
+			b.Position = pos
+			b.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
+			b.BorderColor3 = Color3.fromRGB(40, 40, 50)
+			b.BorderSizePixel = 1
+			b.Text = text
+			b.TextColor3 = Color3.fromRGB(180, 180, 195)
+			b.TextSize = 10
+			b.Font = Enum.Font.Code
+			b.Parent = parent
+			return b
+		end
+
+		local targetModeLabel = Instance.new("TextLabel")
+		targetModeLabel.Size = UDim2.new(1, -16, 0, 16)
+		targetModeLabel.Position = UDim2.fromOffset(8, 224)
+		targetModeLabel.BackgroundTransparency = 1
+		targetModeLabel.Text = "silent target: Both"
+		targetModeLabel.TextColor3 = Color3.fromRGB(180, 180, 195)
+		targetModeLabel.TextSize = 11
+		targetModeLabel.Font = Enum.Font.Code
+		targetModeLabel.TextXAlignment = Enum.TextXAlignment.Left
+		targetModeLabel.Parent = gMain2
+
+		local btnTargetPlayers = makeSmallBtn(gMain2, "Players", UDim2.fromOffset(8, 242), 128)
+		local btnTargetDummies = makeSmallBtn(gMain2, "Dummies", UDim2.fromOffset(142, 242), 128)
+		local btnTargetBoth = makeSmallBtn(gMain2, "Both", UDim2.fromOffset(276, 242), 128)
+
+		local function refreshTargetModeUI()
+			local map = { Players = btnTargetPlayers, Dummies = btnTargetDummies, Both = btnTargetBoth }
+			for name, b in pairs(map) do
+				local on = (silentAimTargetMode == name)
+				b.BackgroundColor3 = on and Color3.fromRGB(30, 60, 45) or Color3.fromRGB(22, 22, 26)
+				b.BorderColor3 = on and Color3.fromRGB(80, 160, 110) or Color3.fromRGB(40, 40, 50)
+			end
+			targetModeLabel.Text = "silent target: " .. silentAimTargetMode
+		end
+		btnTargetPlayers.MouseButton1Click:Connect(function() silentAimTargetMode = "Players"; refreshTargetModeUI() end)
+		btnTargetDummies.MouseButton1Click:Connect(function() silentAimTargetMode = "Dummies"; refreshTargetModeUI() end)
+		btnTargetBoth.MouseButton1Click:Connect(function() silentAimTargetMode = "Both"; refreshTargetModeUI() end)
+		refreshTargetModeUI()
+
+		-- Hit part: Head / Body
+		local hitPartLabel = Instance.new("TextLabel")
+		hitPartLabel.Size = UDim2.new(1, -16, 0, 16)
+		hitPartLabel.Position = UDim2.fromOffset(8, 270)
+		hitPartLabel.BackgroundTransparency = 1
+		hitPartLabel.Text = "silent hit: Body"
+		hitPartLabel.TextColor3 = Color3.fromRGB(180, 180, 195)
+		hitPartLabel.TextSize = 11
+		hitPartLabel.Font = Enum.Font.Code
+		hitPartLabel.TextXAlignment = Enum.TextXAlignment.Left
+		hitPartLabel.Parent = gMain2
+
+		local btnHitHead = makeSmallBtn(gMain2, "Head", UDim2.fromOffset(8, 288), 195)
+		local btnHitBody = makeSmallBtn(gMain2, "Body", UDim2.fromOffset(211, 288), 195)
+
+		local function refreshHitPartUI()
+			local headOn = silentAimHitPart == "Head"
+			btnHitHead.BackgroundColor3 = headOn and Color3.fromRGB(30, 60, 45) or Color3.fromRGB(22, 22, 26)
+			btnHitHead.BorderColor3 = headOn and Color3.fromRGB(80, 160, 110) or Color3.fromRGB(40, 40, 50)
+			btnHitBody.BackgroundColor3 = (not headOn) and Color3.fromRGB(30, 60, 45) or Color3.fromRGB(22, 22, 26)
+			btnHitBody.BorderColor3 = (not headOn) and Color3.fromRGB(80, 160, 110) or Color3.fromRGB(40, 40, 50)
+			hitPartLabel.Text = "silent hit: " .. silentAimHitPart
+		end
+		btnHitHead.MouseButton1Click:Connect(function() silentAimHitPart = "Head"; refreshHitPartUI() end)
+		btnHitBody.MouseButton1Click:Connect(function() silentAimHitPart = "Body"; refreshHitPartUI() end)
+		refreshHitPartUI()
+
+		local ragebotButton = toggle(gMain2, "ragebot", UDim2.fromOffset(8, 320))
+		local auraButton = toggle(gMain2, "aura", UDim2.fromOffset(8, 350))
+		local triggerBotButton = toggle(gMain2, "trigger bot", UDim2.fromOffset(8, 380))
+		local godModeButton = toggle(gMain2, "god mode", UDim2.fromOffset(8, 410))
 		
-		local rapidFireButton = toggle(gMain2, "Rapid Fire & Fast ADS", UDim2.fromOffset(8, 308))
-		local noRecoilButton = toggle(gMain2, "No Recoil / No Spread", UDim2.fromOffset(8, 338))
+		local rapidFireButton = toggle(gMain2, "Rapid Fire & Fast ADS", UDim2.fromOffset(8, 440))
+		local noRecoilButton = toggle(gMain2, "No Recoil / No Spread", UDim2.fromOffset(8, 470))
 
 		local gWorld1 = createGroupBox(worldPage, "world & utilities", UDim2.fromOffset(418, 100), UDim2.fromOffset(12, 12))
 		local wallbangButton = toggle(gWorld1, "projectile wallbang", UDim2.fromOffset(8, 22))
@@ -2174,7 +2330,7 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.13 Enhanced & Loaded Successfully! (Silent Aim + Triggerbot Rivals Fix)")
+		print("Anti-rival beta v0.1.15 Enhanced & Loaded Successfully! (Silent Aim v4 + FOV/Target/HitPart + Triggerbot)")
 	end)
 end
 
@@ -2214,7 +2370,7 @@ else
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.13)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.15)</font>'
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
 	keyTitle.Parent = keyFrame
