@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.16 재배포 금지 재배포 시 IP 딸거임]
+-- [Anti-rival beta v0.1.17 재배포 금지 재배포 시 IP 딸거임]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "riogioaguioawoiufawioawiio"
@@ -93,23 +93,16 @@ local function initMainScript()
 			end
 		end)
 
-		local walkOn, fightOn, espOn, namesOn, healthOn, noclipOn = false, false, false, false, false, false
-		local aimbotOn = false
-		local silentAimOn = false
-		local silentAimFOV = 350
-		local silentAimTargetMode = "Both" -- "Players" | "Dummies" | "Both"
-		local silentAimHitPart = "Body" -- "Head" | "Body"
-
-		local ragebotOn = false
-		local auraOn = false
-		local triggerBotOn = false
-		local wallbangOn = false
-		local godModeOn = false
-		local orbitOn = false
-		local voidSpanOn = false
-		local infiniteJumpOn = false
-		local forceThirdPersonOn = false
-
+		-- State table to avoid "Out of local registers" (Luau 200 limit)
+		local S = {
+			walkOn = false, fightOn = false, espOn = false, namesOn = false, healthOn = false, noclipOn = false,
+			aimbotOn = false, silentAimOn = false, silentAimFOV = 350,
+			silentAimTargetMode = "Both", silentAimHitPart = "Body",
+			ragebotOn = false, auraOn = false, triggerBotOn = false, wallbangOn = false,
+			godModeOn = false, orbitOn = false, voidSpanOn = false, infiniteJumpOn = false,
+			forceThirdPersonOn = false, teleporterOn = false, lastTeleportTick = 0, teleportDistance = 50000,
+			walkSpeed = 16, fightSpeed = 50, showKeybindsOn = true, showWatermarkOn = true,
+		}
 		local selectedTargets = {}
 
 		local _rivReady = true
@@ -266,7 +259,7 @@ local function initMainScript()
 			if Drawing then
 				fovCircle = Drawing.new("Circle")
 				fovCircle.Visible = false
-				fovCircle.Radius = silentAimFOV
+				fovCircle.Radius = S.silentAimFOV
 				fovCircle.Color = Color3.fromRGB(255, 255, 255)
 				fovCircle.Thickness = 1
 				fovCircle.Filled = false
@@ -292,7 +285,7 @@ local function initMainScript()
 
 		local function _saPickPart(model)
 			local order
-			if silentAimHitPart == "Head" then
+			if S.silentAimHitPart == "Head" then
 				order = { HeadPartsList, BodyPartsList }
 			else
 				order = { BodyPartsList, HeadPartsList }
@@ -317,7 +310,7 @@ local function initMainScript()
 					table.insert(models, model)
 				end
 			end
-			local mode = silentAimTargetMode
+			local mode = S.silentAimTargetMode
 			if mode == "Players" or mode == "Both" then
 				for _, plr in ipairs(Players:GetPlayers()) do
 					if plr ~= player and plr.Character then add(plr.Character) end
@@ -353,7 +346,7 @@ local function initMainScript()
 			end
 			local cam = Workspace.CurrentCamera
 			if not cam then return nil end
-			local best, bestDist = nil, silentAimFOV
+			local best, bestDist = nil, S.silentAimFOV
 			local center = cam.ViewportSize / 2
 			for _, model in ipairs(_saCollectModels()) do
 				local hum = model:FindFirstChildOfClass("Humanoid")
@@ -374,7 +367,7 @@ local function initMainScript()
 			_saCachedPart = best
 			_saCacheTime = now
 			env._silentAimTarget = best
-			env._silentRageActive = best ~= nil and silentAimOn
+			env._silentRageActive = best ~= nil and S.silentAimOn
 			return best
 		end
 
@@ -397,7 +390,7 @@ local function initMainScript()
 			end
 			local oldRaycast
 			oldRaycast = hookfunction(Utility.Raycast, function(self, origin, target, distance, filter, ...)
-				if silentAimOn and not checkcaller() then
+				if S.silentAimOn and not checkcaller() then
 					if type(distance) == "number" and distance >= 50 then
 						local part = _saGetClosestPart()
 						if part and typeof(origin) == "Vector3" then
@@ -429,16 +422,84 @@ local function initMainScript()
 				local success, mousePos = pcall(function() return UserInputService:GetMouseLocation() end)
 				if success and mousePos then
 					fovCircle.Position = mousePos
-					fovCircle.Radius = silentAimFOV
+					fovCircle.Radius = S.silentAimFOV
 				end
 			end
 		end))
 
 
 
+
 		-- =========================
-		-- USER RAGEBOT (Desync) - Integrated
+		-- USER RAGEBOT (Desync) + Kill → Far Desync
 		-- =========================
+		local _killDesyncActive = false
+		local _killDesyncConn = nil
+		local _killDesyncRestoreName = "__killDesyncRestore"
+		local FAR_DISTANCE = 50000000
+
+		local function StopKillDesync()
+			_killDesyncActive = false
+			if _killDesyncConn then
+				pcall(function() _killDesyncConn:Disconnect() end)
+				_killDesyncConn = nil
+			end
+			pcall(function()
+				game:GetService("RunService"):UnbindFromRenderStep(_killDesyncRestoreName)
+			end)
+		end
+
+		local function StartKillDesync()
+			if _killDesyncActive then return end
+			_killDesyncActive = true
+
+			local Players = game:GetService("Players")
+			local RunService = game:GetService("RunService")
+			local LP = Players.LocalPlayer
+
+			local function getRoot()
+				local char = LP.Character
+				return char and char:FindFirstChild("HumanoidRootPart")
+			end
+
+			-- Choose a far position (fixed direction for stability)
+			local basePos = Vector3.new(0, 0, 0)
+			local root = getRoot()
+			if root then
+				basePos = root.Position
+			end
+			local farPos = basePos + Vector3.new(FAR_DISTANCE, 100000, FAR_DISTANCE * 0.5)
+
+			print("[Anti-rival] Kill Desync started → far position")
+
+			_killDesyncConn = RunService.Heartbeat:Connect(function()
+				if not _killDesyncActive then return end
+				local r = getRoot()
+				if not r then return end
+
+				-- Save real state
+				local savedCF = r.CFrame
+				local savedVel = r.AssemblyLinearVelocity
+				local savedRot = r.AssemblyAngularVelocity
+
+				-- Teleport far away (this is what others see)
+				r.CFrame = CFrame.new(farPos)
+				r.AssemblyLinearVelocity = Vector3.zero
+				r.AssemblyAngularVelocity = Vector3.zero
+
+				-- Immediately restore on next render step so local view is normal
+				RunService:BindToRenderStep(_killDesyncRestoreName, 200, function()
+					local r2 = getRoot()
+					if r2 then
+						r2.CFrame = savedCF
+						r2.AssemblyLinearVelocity = savedVel
+						r2.AssemblyAngularVelocity = savedRot
+					end
+					RunService:UnbindFromRenderStep(_killDesyncRestoreName)
+				end)
+			end)
+		end
+
 		local function StartUserRagebot()
 			local __a1b2c3 = setmetatable({}, {
 				__index = function(__d4e5f6, __g7h8i9)
@@ -464,10 +525,10 @@ local function initMainScript()
 			local __q3r4s5 = __k7l8m9.PlayerScripts
 
 			local __t6u7v8, __w9x0y1
-			local ok1, err1 = pcall(function()
+			pcall(function()
 				__t6u7v8 = require(__q3r4s5.Modules.ItemTypes.Gun)
 			end)
-			local ok2, err2 = pcall(function()
+			pcall(function()
 				__w9x0y1 = require(__b8c9d0.Modules.Utility)
 			end)
 
@@ -488,6 +549,47 @@ local function initMainScript()
 
 			__p6q7r8.__s9t0u1 = {}
 			local __i1j2k3 = __p6q7r8.__s9t0u1
+
+			-- Kill detection
+			local killConnections = {}
+			local trackedHumans = {}
+
+			local function onEnemyDied()
+				if not __i1j2k3.__active then return end
+				-- Start far desync when we get a kill
+				StartKillDesync()
+			end
+
+			local function trackPlayer(plr)
+				if plr == __k7l8m9 then return end
+				local function hookChar(char)
+					if not char then return end
+					local hum = char:FindFirstChildOfClass("Humanoid")
+					if hum and not trackedHumans[hum] then
+						trackedHumans[hum] = true
+						local conn = hum.Died:Connect(function()
+							onEnemyDied()
+						end)
+						table.insert(killConnections, conn)
+						-- Also health changed as backup
+						local hconn = hum.HealthChanged:Connect(function(hp)
+							if hp <= 0 then
+								onEnemyDied()
+							end
+						end)
+						table.insert(killConnections, hconn)
+					end
+				end
+				if plr.Character then hookChar(plr.Character) end
+				local cconn = plr.CharacterAdded:Connect(hookChar)
+				table.insert(killConnections, cconn)
+			end
+
+			for _, plr in ipairs(__v2w3x4:GetPlayers()) do
+				trackPlayer(plr)
+			end
+			local pconn = __v2w3x4.PlayerAdded:Connect(trackPlayer)
+			table.insert(killConnections, pconn)
 
 			function __i1j2k3:__init()
 				self.__active = true
@@ -641,10 +743,17 @@ local function initMainScript()
 				if self.__oldfunc then
 					__t6u7v8.StartShooting = self.__oldfunc
 				end
+				-- Cleanup kill tracking
+				for _, c in ipairs(killConnections) do
+					pcall(function() c:Disconnect() end)
+				end
+				killConnections = {}
+				trackedHumans = {}
+				StopKillDesync()
 			end
 
 			__i1j2k3:__init()
-			print("[Anti-rival] User Desync Ragebot STARTED")
+			print("[Anti-rival] User Desync Ragebot STARTED (Kill→Far Desync enabled)")
 		end
 
 		local function StopUserRagebot()
@@ -653,6 +762,7 @@ local function initMainScript()
 				pcall(function() g.__s9t0u1:Shutdown() end)
 				g.__s9t0u1 = nil
 			end
+			StopKillDesync()
 			print("[Anti-rival] User Desync Ragebot STOPPED")
 		end
 
@@ -665,14 +775,11 @@ local function initMainScript()
 		end
 
 
-		local showKeybindsOn = true
-		local showWatermarkOn = true
+		-- (moved to S table)
 
-		local teleporterOn = false
-		local lastTeleportTick = 0
-		local teleportDistance = 50000
+		-- (moved to S table)
 
-		local walkSpeed, fightSpeed = 16, 50
+		-- (moved to S table)
 		local fightConnection = nil
 		local bodyGyro, bodyVelocity = nil, nil
 
@@ -691,11 +798,11 @@ local function initMainScript()
 		local function SaveConfig()
 			if writefile then
 				local configData = {
-					walkSpeed = walkSpeed,
-					fightSpeed = fightSpeed,
-					teleportDistance = teleportDistance,
-					showKeybindsOn = showKeybindsOn,
-					showWatermarkOn = showWatermarkOn,
+					walkSpeed = S.walkSpeed,
+					fightSpeed = S.fightSpeed,
+					teleportDistance = S.teleportDistance,
+					showKeybindsOn = S.showKeybindsOn,
+					showWatermarkOn = S.showWatermarkOn,
 					keybinds = {
 						randomTp = tostring(keybinds.randomTp.Name),
 						autoTp = tostring(keybinds.autoTp.Name),
@@ -720,11 +827,11 @@ local function initMainScript()
 					return game:GetService("HttpService"):JSONDecode(readfile(CONFIG_FILE_NAME_PREFS))
 				end)
 				if success and type(decoded) == "table" then
-					if decoded.walkSpeed then walkSpeed = decoded.walkSpeed end
-					if decoded.fightSpeed then fightSpeed = decoded.fightSpeed end
-					if decoded.teleportDistance then teleportDistance = decoded.teleportDistance end
-					if decoded.showKeybindsOn ~= nil then showKeybindsOn = decoded.showKeybindsOn end
-					if decoded.showWatermarkOn ~= nil then showWatermarkOn = decoded.showWatermarkOn end
+					if decoded.walkSpeed then S.walkSpeed = decoded.walkSpeed end
+					if decoded.fightSpeed then S.fightSpeed = decoded.fightSpeed end
+					if decoded.teleportDistance then S.teleportDistance = decoded.teleportDistance end
+					if decoded.showKeybindsOn ~= nil then S.showKeybindsOn = decoded.showKeybindsOn end
+					if decoded.showWatermarkOn ~= nil then S.showWatermarkOn = decoded.showWatermarkOn end
 
 					if decoded.keybinds then
 						for k, v in pairs(decoded.keybinds) do
@@ -795,7 +902,7 @@ local function initMainScript()
 		watermarkFrame.BorderSizePixel = 1
 		watermarkFrame.Active = true
 		watermarkFrame.Draggable = true
-		watermarkFrame.Visible = showWatermarkOn
+		watermarkFrame.Visible = S.showWatermarkOn
 		watermarkFrame.Parent = watermarkGui
 
 		local wmCorner = Instance.new("UICorner")
@@ -820,7 +927,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.16 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.17 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -837,8 +944,8 @@ local function initMainScript()
 				local currentFps = math.floor((frameCount / (now - lastFpsUpdate)) + 0.5)
 				frameCount = 0
 				lastFpsUpdate = now
-				if showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.16 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+				if S.showWatermarkOn then
+					watermarkLabel.Text = 'Anti-rival beta v0.1.17 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -853,7 +960,7 @@ local function initMainScript()
 		kbFrame.BorderSizePixel = 1
 		kbFrame.Active = true
 		kbFrame.Draggable = true
-		kbFrame.Visible = showKeybindsOn
+		kbFrame.Visible = S.showKeybindsOn
 		kbFrame.Parent = keybindGui
 
 		local kbCorner = Instance.new("UICorner")
@@ -865,7 +972,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.16)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.17)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -1085,7 +1192,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.16 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.17 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -1300,15 +1407,15 @@ local function initMainScript()
 		end
 
 		local gMain1 = createGroupBox(mainPage, "movement", UDim2.fromOffset(418, 170), UDim2.fromOffset(12, 12))
-		local walkSlider = createSlider(gMain1, "walk speed", 1, 1000, walkSpeed, UDim2.fromOffset(8, 18), function(val)
-			walkSpeed = val
+		local walkSlider = createSlider(gMain1, "walk speed", 1, 1000, S.walkSpeed, UDim2.fromOffset(8, 18), function(val)
+			S.walkSpeed = val
 			local h, _ = getSafeParts()
-			if h and walkOn then h.WalkSpeed = walkSpeed end
+			if h and S.walkOn then h.WalkSpeed = S.walkSpeed end
 		end)
 		local walkButton = toggle(gMain1, "walk speed", UDim2.fromOffset(8, 58))
 		
-		local fightSlider = createSlider(gMain1, "fight speed", 1, 1000, fightSpeed, UDim2.fromOffset(8, 86), function(val)
-			fightSpeed = val
+		local fightSlider = createSlider(gMain1, "fight speed", 1, 1000, S.fightSpeed, UDim2.fromOffset(8, 86), function(val)
+			S.fightSpeed = val
 		end)
 		local fightButton = toggle(gMain1, "fight mode", UDim2.fromOffset(8, 126))
 
@@ -1381,8 +1488,8 @@ local function initMainScript()
 
 		local silentAimButton = toggle(gMain2, "silent aim", UDim2.fromOffset(8, 158))
 
-		local silentFovSlider = createSlider(gMain2, "silent FOV", 1, 5000, silentAimFOV, UDim2.fromOffset(8, 184), function(val)
-			silentAimFOV = val
+		local silentFovSlider = createSlider(gMain2, "silent FOV", 1, 5000, S.silentAimFOV, UDim2.fromOffset(8, 184), function(val)
+			S.silentAimFOV = val
 			if fovCircle then fovCircle.Radius = val end
 		end)
 
@@ -1420,15 +1527,15 @@ local function initMainScript()
 		local function refreshTargetModeUI()
 			local map = { Players = btnTargetPlayers, Dummies = btnTargetDummies, Both = btnTargetBoth }
 			for name, b in pairs(map) do
-				local on = (silentAimTargetMode == name)
+				local on = (S.silentAimTargetMode == name)
 				b.BackgroundColor3 = on and Color3.fromRGB(30, 60, 45) or Color3.fromRGB(22, 22, 26)
 				b.BorderColor3 = on and Color3.fromRGB(80, 160, 110) or Color3.fromRGB(40, 40, 50)
 			end
-			targetModeLabel.Text = "silent target: " .. silentAimTargetMode
+			targetModeLabel.Text = "silent target: " .. S.silentAimTargetMode
 		end
-		btnTargetPlayers.MouseButton1Click:Connect(function() silentAimTargetMode = "Players"; refreshTargetModeUI() end)
-		btnTargetDummies.MouseButton1Click:Connect(function() silentAimTargetMode = "Dummies"; refreshTargetModeUI() end)
-		btnTargetBoth.MouseButton1Click:Connect(function() silentAimTargetMode = "Both"; refreshTargetModeUI() end)
+		btnTargetPlayers.MouseButton1Click:Connect(function() S.silentAimTargetMode = "Players"; refreshTargetModeUI() end)
+		btnTargetDummies.MouseButton1Click:Connect(function() S.silentAimTargetMode = "Dummies"; refreshTargetModeUI() end)
+		btnTargetBoth.MouseButton1Click:Connect(function() S.silentAimTargetMode = "Both"; refreshTargetModeUI() end)
 		refreshTargetModeUI()
 
 		-- Hit part: Head / Body
@@ -1447,15 +1554,15 @@ local function initMainScript()
 		local btnHitBody = makeSmallBtn(gMain2, "Body", UDim2.fromOffset(211, 288), 195)
 
 		local function refreshHitPartUI()
-			local headOn = silentAimHitPart == "Head"
+			local headOn = S.silentAimHitPart == "Head"
 			btnHitHead.BackgroundColor3 = headOn and Color3.fromRGB(30, 60, 45) or Color3.fromRGB(22, 22, 26)
 			btnHitHead.BorderColor3 = headOn and Color3.fromRGB(80, 160, 110) or Color3.fromRGB(40, 40, 50)
 			btnHitBody.BackgroundColor3 = (not headOn) and Color3.fromRGB(30, 60, 45) or Color3.fromRGB(22, 22, 26)
 			btnHitBody.BorderColor3 = (not headOn) and Color3.fromRGB(80, 160, 110) or Color3.fromRGB(40, 40, 50)
-			hitPartLabel.Text = "silent hit: " .. silentAimHitPart
+			hitPartLabel.Text = "silent hit: " .. S.silentAimHitPart
 		end
-		btnHitHead.MouseButton1Click:Connect(function() silentAimHitPart = "Head"; refreshHitPartUI() end)
-		btnHitBody.MouseButton1Click:Connect(function() silentAimHitPart = "Body"; refreshHitPartUI() end)
+		btnHitHead.MouseButton1Click:Connect(function() S.silentAimHitPart = "Head"; refreshHitPartUI() end)
+		btnHitBody.MouseButton1Click:Connect(function() S.silentAimHitPart = "Body"; refreshHitPartUI() end)
 		refreshHitPartUI()
 
 		local ragebotButton = toggle(gMain2, "ragebot", UDim2.fromOffset(8, 320))
@@ -1479,8 +1586,8 @@ local function initMainScript()
 		local orbitButton = toggle(gVis1, "orbit position mode", UDim2.fromOffset(8, 22))
 		local voidSpanButton = toggle(gVis1, "void span mode", UDim2.fromOffset(8, 52))
 		
-		local teleporterSlider = createSlider(gVis1, "teleport distance", 1000, 1000000, teleportDistance, UDim2.fromOffset(8, 82), function(val)
-			teleportDistance = val
+		local teleporterSlider = createSlider(gVis1, "teleport distance", 1000, 1000000, S.teleportDistance, UDim2.fromOffset(8, 82), function(val)
+			S.teleportDistance = val
 		end)
 		local teleporterButton = toggle(gVis1, "auto 50k tp (every 1s)", UDim2.fromOffset(8, 124))
 
@@ -1869,19 +1976,19 @@ local function initMainScript()
 
 		local gSet1 = createGroupBox(settingPage, "ui & configurations", UDim2.fromOffset(418, 360), UDim2.fromOffset(12, 12))
 		local showKeybindsButton = toggle(gSet1, "show keybinds", UDim2.fromOffset(8, 22))
-		setToggle(showKeybindsButton, showKeybindsOn, "show keybinds")
+		setToggle(showKeybindsButton, S.showKeybindsOn, "show keybinds")
 		showKeybindsButton.MouseButton1Click:Connect(function()
-			showKeybindsOn = not showKeybindsOn
-			setToggle(showKeybindsButton, showKeybindsOn, "show keybinds")
-			kbFrame.Visible = showKeybindsOn
+			S.showKeybindsOn = not S.showKeybindsOn
+			setToggle(showKeybindsButton, S.showKeybindsOn, "show keybinds")
+			kbFrame.Visible = S.showKeybindsOn
 		end)
 
 		local showWatermarkButton = toggle(gSet1, "show watermark", UDim2.fromOffset(8, 52))
-		setToggle(showWatermarkButton, showWatermarkOn, "show watermark")
+		setToggle(showWatermarkButton, S.showWatermarkOn, "show watermark")
 		showWatermarkButton.MouseButton1Click:Connect(function()
-			showWatermarkOn = not showWatermarkOn
-			setToggle(showWatermarkButton, showWatermarkOn, "show watermark")
-			watermarkFrame.Visible = showWatermarkOn
+			S.showWatermarkOn = not S.showWatermarkOn
+			setToggle(showWatermarkButton, S.showWatermarkOn, "show watermark")
+			watermarkFrame.Visible = S.showWatermarkOn
 		end)
 
 		local function createKeybindRow(parent, labelText, keyName, yPos)
@@ -2032,18 +2139,18 @@ local function initMainScript()
 							end
 						end)
 					elseif keybinds.autoTp ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.autoTp then
-						teleporterOn = not teleporterOn
-						setToggle(teleporterButton, teleporterOn, "auto 50k tp (every 1s)")
+						S.teleporterOn = not S.teleporterOn
+						setToggle(teleporterButton, S.teleporterOn, "auto 50k tp (every 1s)")
 					elseif keybinds.orbit ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.orbit then
-						orbitOn = not orbitOn
-						if orbitOn then voidSpanOn = false; setToggle(voidSpanButton, false, "void span mode") end
-						setToggle(orbitButton, orbitOn, "orbit position mode")
+						S.orbitOn = not S.orbitOn
+						if S.orbitOn then S.voidSpanOn = false; setToggle(voidSpanButton, false, "void span mode") end
+						setToggle(orbitButton, S.orbitOn, "orbit position mode")
 					elseif keybinds.fight ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.fight then
-						if toggleFight then toggleFight(not fightOn) end
+						if toggleFight then toggleFight(not S.fightOn) end
 					elseif keybinds.noclip ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.noclip then
-						if toggleNoclip then toggleNoclip(not noclipOn) end
+						if toggleNoclip then toggleNoclip(not S.noclipOn) end
 					elseif keybinds.esp ~= Enum.KeyCode.Unknown and input.KeyCode == keybinds.esp then
-						if toggleEsp then toggleEsp(not espOn) end
+						if toggleEsp then toggleEsp(not S.espOn) end
 					end
 				end
 			end
@@ -2052,7 +2159,7 @@ local function initMainScript()
 		trackConn(UserInputService.InputBegan:Connect(handleInputBegan))
 
 		trackConn(UserInputService.JumpRequest:Connect(function()
-			if infiniteJumpOn then
+			if S.infiniteJumpOn then
 				task.defer(function()
 					pcall(function()
 						local hum, _ = getSafeParts()
@@ -2063,14 +2170,14 @@ local function initMainScript()
 		end))
 
 		local function executeFight(state)
-			fightOn = state
-			setToggle(fightButton, fightOn, "fight mode")
-			if isMobile then fightControlGui.Enabled = fightOn end
+			S.fightOn = state
+			setToggle(fightButton, S.fightOn, "fight mode")
+			if isMobile then fightControlGui.Enabled = S.fightOn end
 			local hum, root = getSafeParts()
 
-			if fightOn then
+			if S.fightOn then
 				if not root or not hum then
-					fightOn = false
+					S.fightOn = false
 					setToggle(fightButton, false, "fight mode")
 					if isMobile then fightControlGui.Enabled = false end
 					return
@@ -2092,7 +2199,7 @@ local function initMainScript()
 				fightConnection = RunService.RenderStepped:Connect(function()
 					local currentCam = getActiveCamera()
 					local currentHum, currentRoot = getSafeParts()
-					if not fightOn or not currentRoot or not currentHum or currentHum.Health <= 0 then
+					if not S.fightOn or not currentRoot or not currentHum or currentHum.Health <= 0 then
 						if toggleFight then toggleFight(false) end
 						return
 					end
@@ -2101,9 +2208,9 @@ local function initMainScript()
 					local moveDir = Vector3.zero
 					
 					if isMobile then
-						if currentHum.MoveDirection.Magnitude > 0 then moveDir = currentHum.MoveDirection.Unit * fightSpeed end
-						if fightUpActive then moveDir = moveDir + Vector3.new(0, fightSpeed, 0)
-						elseif fightDownActive then moveDir = moveDir - Vector3.new(0, fightSpeed, 0) end
+						if currentHum.MoveDirection.Magnitude > 0 then moveDir = currentHum.MoveDirection.Unit * S.fightSpeed end
+						if fightUpActive then moveDir = moveDir + Vector3.new(0, S.fightSpeed, 0)
+						elseif fightDownActive then moveDir = moveDir - Vector3.new(0, S.fightSpeed, 0) end
 					else
 						if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + currentCam.CFrame.LookVector end
 						if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - currentCam.CFrame.LookVector end
@@ -2116,7 +2223,7 @@ local function initMainScript()
 					end
 
 					if bodyVelocity then
-						bodyVelocity.Velocity = moveDir.Magnitude > 0 and (isMobile and moveDir or moveDir.Unit * fightSpeed) or Vector3.zero
+						bodyVelocity.Velocity = moveDir.Magnitude > 0 and (isMobile and moveDir or moveDir.Unit * S.fightSpeed) or Vector3.zero
 					end
 				end)
 				trackConn(fightConnection)
@@ -2131,14 +2238,14 @@ local function initMainScript()
 		toggleFight = executeFight
 
 		local function executeNoclip(state)
-			noclipOn = state
-			setToggle(noclipButton, noclipOn, "noclip")
+			S.noclipOn = state
+			setToggle(noclipButton, S.noclipOn, "noclip")
 		end
 		toggleNoclip = executeNoclip
 
 		local function executeEsp(state)
-			espOn = state
-			setToggle(espButton, espOn, "player esp")
+			S.espOn = state
+			setToggle(espButton, S.espOn, "player esp")
 		end
 		toggleEsp = executeEsp
 
@@ -2156,13 +2263,13 @@ local function initMainScript()
 			local char = p.Character
 			local hum = char and char:FindFirstChildOfClass("Humanoid")
 			
-			if (not espOn and not namesOn and not healthOn) or not char or not char:FindFirstChild("HumanoidRootPart") then
+			if (not S.espOn and not S.namesOn and not S.healthOn) or not char or not char:FindFirstChild("HumanoidRootPart") then
 				removeEsp(p)
 				return
 			end
 
 			local highlight = espCache[p] and espCache[p].Highlight
-			if espOn then
+			if S.espOn then
 				if not highlight or not highlight.Parent then
 					highlight = Instance.new("Highlight")
 					highlight.Name = "AntiRivalESP"
@@ -2181,7 +2288,7 @@ local function initMainScript()
 			local head = char:FindFirstChild("Head")
 			local infoBillboard = espCache[p] and espCache[p].InfoBillboard
 
-			if (namesOn or healthOn) and head then
+			if (S.namesOn or S.healthOn) and head then
 				if not infoBillboard or not infoBillboard.Parent then
 					infoBillboard = Instance.new("BillboardGui")
 					infoBillboard.Name = "AntiRivalInfo"
@@ -2217,9 +2324,9 @@ local function initMainScript()
 				local nameLabel = infoBillboard:FindFirstChild("NameText")
 				local healthLabel = infoBillboard:FindFirstChild("HealthText")
 
-				if nameLabel then nameLabel.Visible = namesOn; nameLabel.Text = p.Name end
+				if nameLabel then nameLabel.Visible = S.namesOn; nameLabel.Text = p.Name end
 				if healthLabel then
-					healthLabel.Visible = (healthOn and hum ~= nil)
+					healthLabel.Visible = (S.healthOn and hum ~= nil)
 					if hum then healthLabel.Text = "HP: " .. math.floor(hum.Health) .. " / " .. math.floor(hum.MaxHealth) end
 				end
 			else
@@ -2230,7 +2337,7 @@ local function initMainScript()
 		end
 
 		trackConn(RunService.RenderStepped:Connect(function()
-			if not espOn and not namesOn and not healthOn then
+			if not S.espOn and not S.namesOn and not S.healthOn then
 				for p, _ in pairs(espCache) do removeEsp(p) end
 				return
 			end
@@ -2264,7 +2371,7 @@ local function initMainScript()
 		end)
 
 		trackConn(RunService.RenderStepped:Connect(function()
-			if not aimbotOn then return end
+			if not S.aimbotOn then return end
 			pcall(function()
 				local currentCam = getActiveCamera()
 				local bestTarget = nil
@@ -2325,7 +2432,7 @@ local function initMainScript()
 		end))
 
 		trackConn(RunService.RenderStepped:Connect(function()
-			if not auraOn then return end
+			if not S.auraOn then return end
 			pcall(function()
 				local _, root = getSafeParts()
 				if not root then return end
@@ -2348,7 +2455,7 @@ local function initMainScript()
 
 		local lastTriggerCheck = 0
 		trackConn(RunService.RenderStepped:Connect(function()
-			if not triggerBotOn then return end
+			if not S.triggerBotOn then return end
 			local now = os.clock()
 			if now - lastTriggerCheck < 0.03 then return end
 			lastTriggerCheck = now
@@ -2390,11 +2497,11 @@ local function initMainScript()
 				local char = player.Character
 				local hum = char and char:FindFirstChildOfClass("Humanoid")
 				
-				if godModeOn and hum then
+				if S.godModeOn and hum then
 					hum.Health = hum.MaxHealth
 				end
 
-				if wallbangOn then
+				if S.wallbangOn then
 					for _, p in ipairs(Workspace:GetDescendants()) do
 						if p:IsA("BasePart") and not p.Parent:FindFirstChildOfClass("Humanoid") then
 							if p.CanCollide and p.Size.Magnitude < 50 then
@@ -2407,7 +2514,7 @@ local function initMainScript()
 		end))
 
 		trackConn(RunService.RenderStepped:Connect(function()
-			if forceThirdPersonOn then
+			if S.forceThirdPersonOn then
 				pcall(function()
 					player.CameraMode = Enum.CameraMode.Classic
 					if player.CameraMinZoomDistance < 10 then player.CameraMinZoomDistance = 10 end
@@ -2420,7 +2527,7 @@ local function initMainScript()
 		end))
 
 		trackConn(RunService.RenderStepped:Connect(function()
-			if orbitOn then
+			if S.orbitOn then
 				pcall(function()
 					local _, root = getSafeParts()
 					if root then
@@ -2428,7 +2535,7 @@ local function initMainScript()
 						root.CFrame = CFrame.new(root.Position + Vector3.new(math.cos(t) * 25, 10, math.sin(t) * 25))
 					end
 				end)
-			elseif voidSpanOn then
+			elseif S.voidSpanOn then
 				pcall(function()
 					local _, root = getSafeParts()
 					if root then root.CFrame = CFrame.new(root.Position + Vector3.new(0, 500, 0)) end
@@ -2437,22 +2544,22 @@ local function initMainScript()
 		end))
 
 		trackConn(RunService.RenderStepped:Connect(function()
-			if not teleporterOn then return end
+			if not S.teleporterOn then return end
 			local now = os.clock()
-			if now - lastTeleportTick >= 1.0 then
-				lastTeleportTick = now
+			if now - S.lastTeleportTick >= 1.0 then
+				S.lastTeleportTick = now
 				pcall(function()
 					local _, root = getSafeParts()
 					if root then
 						local randomAngle = math.random() * math.pi * 2
-						root.CFrame = CFrame.new(root.Position + Vector3.new(math.cos(randomAngle) * teleportDistance, 50, math.sin(randomAngle) * teleportDistance))
+						root.CFrame = CFrame.new(root.Position + Vector3.new(math.cos(randomAngle) * S.teleportDistance, 50, math.sin(randomAngle) * S.teleportDistance))
 					end
 				end)
 			end
 		end))
 
 		trackConn(RunService.Stepped:Connect(function()
-			if not noclipOn then return end
+			if not S.noclipOn then return end
 			pcall(function()
 				local char = player.Character
 				if char then
@@ -2464,37 +2571,38 @@ local function initMainScript()
 		end))
 
 		walkButton.MouseButton1Click:Connect(function()
-			walkOn = not walkOn
-			setToggle(walkButton, walkOn, "walk speed")
+			S.walkOn = not S.walkOn
+			setToggle(walkButton, S.walkOn, "walk speed")
 			local h, _ = getSafeParts()
-			if h then h.WalkSpeed = walkOn and walkSpeed or 16 end
+			if h then h.WalkSpeed = S.walkOn and S.walkSpeed or 16 end
 		end)
 
-		fightButton.MouseButton1Click:Connect(function() if toggleFight then toggleFight(not fightOn) end end)
+		fightButton.MouseButton1Click:Connect(function() if toggleFight then toggleFight(not S.fightOn) end end)
 
-		aimbotButton.MouseButton1Click:Connect(function() aimbotOn = not aimbotOn; setToggle(aimbotButton, aimbotOn, "aimbot") end)
+		aimbotButton.MouseButton1Click:Connect(function() S.aimbotOn = not S.aimbotOn; setToggle(aimbotButton, S.aimbotOn, "aimbot") end)
 		
 		silentAimButton.MouseButton1Click:Connect(function()
-			silentAimOn = not silentAimOn
-			if not silentAimOn then
+			S.silentAimOn = not S.silentAimOn
+			if not S.silentAimOn then
 				env._silentRageActive = false
 				env._silentAimTarget = nil
 			end
-			setToggle(silentAimButton, silentAimOn, "silent aim")
-			if silentAimOn then _tcAddConsumer() else _tcRemoveConsumer() end
+			setToggle(silentAimButton, S.silentAimOn, "silent aim")
+			if S.silentAimOn then _tcAddConsumer() else _tcRemoveConsumer() end
 		end)
 
 		ragebotButton.MouseButton1Click:Connect(function()
-			ragebotOn = not ragebotOn
-			env._riv_startRagebot(ragebotOn)
-			setToggle(ragebotButton, ragebotOn, "ragebot")
+			S.ragebotOn = not S.ragebotOn
+			ragebotOn = S.ragebotOn
+			env._riv_startRagebot(S.ragebotOn)
+			setToggle(ragebotButton, S.ragebotOn, "ragebot")
 		end)
 
-		auraButton.MouseButton1Click:Connect(function() auraOn = not auraOn; setToggle(auraButton, auraOn, "aura") end)
-		triggerBotButton.MouseButton1Click:Connect(function() triggerBotOn = not triggerBotOn; setToggle(triggerBotButton, triggerBotOn, "trigger bot") end)
-		wallbangButton.MouseButton1Click:Connect(function() wallbangOn = not wallbangOn; setToggle(wallbangButton, wallbangOn, "projectile wallbang") end)
-		godModeButton.MouseButton1Click:Connect(function() godModeOn = not godModeOn; setToggle(godModeButton, godModeOn, "god mode") end)
-		forceThirdPersonButton.MouseButton1Click:Connect(function() forceThirdPersonOn = not forceThirdPersonOn; setToggle(forceThirdPersonButton, forceThirdPersonOn, "force 3rd person (rivals)") end)
+		auraButton.MouseButton1Click:Connect(function() S.auraOn = not S.auraOn; setToggle(auraButton, S.auraOn, "aura") end)
+		triggerBotButton.MouseButton1Click:Connect(function() S.triggerBotOn = not S.triggerBotOn; setToggle(triggerBotButton, S.triggerBotOn, "trigger bot") end)
+		wallbangButton.MouseButton1Click:Connect(function() S.wallbangOn = not S.wallbangOn; setToggle(wallbangButton, S.wallbangOn, "projectile wallbang") end)
+		godModeButton.MouseButton1Click:Connect(function() S.godModeOn = not S.godModeOn; setToggle(godModeButton, S.godModeOn, "god mode") end)
+		forceThirdPersonButton.MouseButton1Click:Connect(function() S.forceThirdPersonOn = not S.forceThirdPersonOn; setToggle(forceThirdPersonButton, S.forceThirdPersonOn, "force 3rd person (rivals)") end)
 
 		rapidFireButton.MouseButton1Click:Connect(function()
 			env._rivRapidFire = not env._rivRapidFire
@@ -2506,29 +2614,29 @@ local function initMainScript()
 			setToggle(noRecoilButton, env._rivNoRecoil, "No Recoil / No Spread")
 		end)
 
-		espButton.MouseButton1Click:Connect(function() if toggleEsp then toggleEsp(not espOn) end end)
-		namesButton.MouseButton1Click:Connect(function() namesOn = not namesOn; setToggle(namesButton, namesOn, "player names") end)
-		healthButton.MouseButton1Click:Connect(function() healthOn = not healthOn; setToggle(healthButton, healthOn, "player health text") end)
+		espButton.MouseButton1Click:Connect(function() if toggleEsp then toggleEsp(not S.espOn) end end)
+		namesButton.MouseButton1Click:Connect(function() S.namesOn = not S.namesOn; setToggle(namesButton, S.namesOn, "player names") end)
+		healthButton.MouseButton1Click:Connect(function() S.healthOn = not S.healthOn; setToggle(healthButton, S.healthOn, "player health text") end)
 
-		infiniteJumpButton.MouseButton1Click:Connect(function() infiniteJumpOn = not infiniteJumpOn; setToggle(infiniteJumpButton, infiniteJumpOn, "infinite jump") end)
+		infiniteJumpButton.MouseButton1Click:Connect(function() S.infiniteJumpOn = not S.infiniteJumpOn; setToggle(infiniteJumpButton, S.infiniteJumpOn, "infinite jump") end)
 
 		orbitButton.MouseButton1Click:Connect(function()
-			orbitOn = not orbitOn
-			if orbitOn then voidSpanOn = false; setToggle(voidSpanButton, false, "void span mode") end
-			setToggle(orbitButton, orbitOn, "orbit position mode")
+			S.orbitOn = not S.orbitOn
+			if S.orbitOn then S.voidSpanOn = false; setToggle(voidSpanButton, false, "void span mode") end
+			setToggle(orbitButton, S.orbitOn, "orbit position mode")
 		end)
 
 		voidSpanButton.MouseButton1Click:Connect(function()
-			voidSpanOn = not voidSpanOn
-			if voidSpanOn then orbitOn = false; setToggle(orbitButton, false, "orbit position mode") end
-			setToggle(voidSpanButton, voidSpanOn, "void span mode")
+			S.voidSpanOn = not S.voidSpanOn
+			if S.voidSpanOn then S.orbitOn = false; setToggle(orbitButton, false, "orbit position mode") end
+			setToggle(voidSpanButton, S.voidSpanOn, "void span mode")
 		end)
 
-		teleporterButton.MouseButton1Click:Connect(function() teleporterOn = not teleporterOn; setToggle(teleporterButton, teleporterOn, "auto 50k tp (every 1s)") end)
-		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not noclipOn) end end)
+		teleporterButton.MouseButton1Click:Connect(function() S.teleporterOn = not S.teleporterOn; setToggle(teleporterButton, S.teleporterOn, "auto 50k tp (every 1s)") end)
+		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not S.noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.16 Enhanced & Loaded Successfully! (Silent Aim v4 + FOV/Target/HitPart + Triggerbot)")
+		print("Anti-rival beta v0.1.17 Enhanced & Loaded Successfully! (Silent Aim v4 + FOV/Target/HitPart + Triggerbot)")
 	end)
 end
 
@@ -2568,7 +2676,7 @@ else
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.16)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.17)</font>'
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
 	keyTitle.Parent = keyFrame
