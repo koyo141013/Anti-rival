@@ -1,4 +1,4 @@
--- [Anti-rival beta v0.1.17 재배포 금지 재배포 시 IP 딸거임]
+-- [Anti-rival beta v0.1.16 재배포 금지 재배포 시 IP 딸거임]
 
 local KEY_SYSTEM_ENABLED = true
 local CORRECT_KEY = "riogioaguioawoiufawioawiio"
@@ -93,7 +93,6 @@ local function initMainScript()
 			end
 		end)
 
-		-- State table to avoid "Out of local registers" (Luau 200 limit)
 		local S = {
 			walkOn = false, fightOn = false, espOn = false, namesOn = false, healthOn = false, noclipOn = false,
 			aimbotOn = false, silentAimOn = false, silentAimFOV = 350,
@@ -103,6 +102,7 @@ local function initMainScript()
 			forceThirdPersonOn = false, teleporterOn = false, lastTeleportTick = 0, teleportDistance = 50000,
 			walkSpeed = 16, fightSpeed = 50, showKeybindsOn = true, showWatermarkOn = true,
 		}
+		
 		local selectedTargets = {}
 
 		local _rivReady = true
@@ -431,12 +431,37 @@ local function initMainScript()
 
 
 		-- =========================
-		-- USER RAGEBOT (Desync) + Kill → Far Desync
+		-- USER RAGEBOT (Desync) + Kill Far Desync
 		-- =========================
 		local _killDesyncActive = false
 		local _killDesyncConn = nil
 		local _killDesyncRestoreName = "__killDesyncRestore"
 		local FAR_DISTANCE = 50000000
+
+		local function countAliveEnemies()
+			local count = 0
+			pcall(function()
+				local LP = game:GetService("Players").LocalPlayer
+				for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+					if plr ~= LP then
+						local sameTeam = false
+						if LP:GetAttribute("TeamID") and plr:GetAttribute("TeamID") then
+							sameTeam = (LP:GetAttribute("TeamID") == plr:GetAttribute("TeamID"))
+						elseif LP.Team and plr.Team then
+							sameTeam = (LP.Team == plr.Team)
+						end
+						if not sameTeam then
+							local char = plr.Character
+							local hum = char and char:FindFirstChildOfClass("Humanoid")
+							if hum and hum.Health > 0 then
+								count = count + 1
+							end
+						end
+					end
+				end
+			end)
+			return count
+		end
 
 		local function StopKillDesync()
 			_killDesyncActive = false
@@ -450,6 +475,10 @@ local function initMainScript()
 		end
 
 		local function StartKillDesync()
+			-- Only when NO alive enemies
+			if countAliveEnemies() > 0 then
+				return
+			end
 			if _killDesyncActive then return end
 			_killDesyncActive = true
 
@@ -462,136 +491,129 @@ local function initMainScript()
 				return char and char:FindFirstChild("HumanoidRootPart")
 			end
 
-			-- Choose a far position (fixed direction for stability)
-			local basePos = Vector3.new(0, 0, 0)
 			local root = getRoot()
-			if root then
-				basePos = root.Position
-			end
-			local farPos = basePos + Vector3.new(FAR_DISTANCE, 100000, FAR_DISTANCE * 0.5)
+			local basePos = root and root.Position or Vector3.zero
+			local farPos = basePos + Vector3.new(FAR_DISTANCE, 150000, FAR_DISTANCE * 0.37)
 
-			print("[Anti-rival] Kill Desync started → far position")
+			print("[Anti-rival] No enemies left → Far Desync ON")
 
 			_killDesyncConn = RunService.Heartbeat:Connect(function()
 				if not _killDesyncActive then return end
+
+				if countAliveEnemies() > 0 then
+					StopKillDesync()
+					return
+				end
+
 				local r = getRoot()
 				if not r then return end
 
-				-- Save real state
 				local savedCF = r.CFrame
 				local savedVel = r.AssemblyLinearVelocity
 				local savedRot = r.AssemblyAngularVelocity
 
-				-- Teleport far away (this is what others see)
-				r.CFrame = CFrame.new(farPos)
+				-- What others see
+				r.CFrame = CFrame.new(farPos + Vector3.new(
+					math.random(-80, 80),
+					math.random(-30, 30),
+					math.random(-80, 80)
+				))
 				r.AssemblyLinearVelocity = Vector3.zero
 				r.AssemblyAngularVelocity = Vector3.zero
 
-				-- Immediately restore on next render step so local view is normal
-				RunService:BindToRenderStep(_killDesyncRestoreName, 200, function()
+				-- Local restore (invisible to self)
+				RunService:BindToRenderStep(_killDesyncRestoreName, Enum.RenderPriority.Camera.Value - 1, function()
 					local r2 = getRoot()
 					if r2 then
 						r2.CFrame = savedCF
 						r2.AssemblyLinearVelocity = savedVel
 						r2.AssemblyAngularVelocity = savedRot
 					end
-					RunService:UnbindFromRenderStep(_killDesyncRestoreName)
+					pcall(function()
+						RunService:UnbindFromRenderStep(_killDesyncRestoreName)
+					end)
 				end)
 			end)
 		end
 
 		local function StartUserRagebot()
 			local __a1b2c3 = setmetatable({}, {
-				__index = function(__d4e5f6, __g7h8i9)
-					local __j0k1l2, __m3n4o5 = pcall(function() return game:GetService(__g7h8i9) end)
-					if __m3n4o5 then
-						if cloneref then return cloneref(__m3n4o5) end
-						return __m3n4o5
+				__index = function(_, name)
+					local ok, svc = pcall(function() return game:GetService(name) end)
+					if ok and svc then
+						if cloneref then return cloneref(svc) end
+						return svc
 					end
 					return nil
 				end
 			})
 
-			local __p6q7r8 = getgenv()
-			if __p6q7r8.__s9t0u1 then
-				pcall(function() __p6q7r8.__s9t0u1:Shutdown() end)
+			local genv = getgenv()
+			if genv.__s9t0u1 then
+				pcall(function() genv.__s9t0u1:Shutdown() end)
 			end
 
-			local __v2w3x4 = __a1b2c3.Players
-			local __y5z6a7 = __a1b2c3.RunService
-			local __b8c9d0 = __a1b2c3.ReplicatedStorage
-			local __e1f2g3 = __a1b2c3.Workspace
-			local __k7l8m9 = __v2w3x4.LocalPlayer
-			local __q3r4s5 = __k7l8m9.PlayerScripts
+			local Players = __a1b2c3.Players
+			local RunService = __a1b2c3.RunService
+			local ReplicatedStorage = __a1b2c3.ReplicatedStorage
+			local LP = Players.LocalPlayer
+			local PlayerScripts = LP.PlayerScripts
 
-			local __t6u7v8, __w9x0y1
-			pcall(function()
-				__t6u7v8 = require(__q3r4s5.Modules.ItemTypes.Gun)
-			end)
-			pcall(function()
-				__w9x0y1 = require(__b8c9d0.Modules.Utility)
-			end)
+			local GunModule, UtilityModule
+			pcall(function() GunModule = require(PlayerScripts.Modules.ItemTypes.Gun) end)
+			pcall(function() UtilityModule = require(ReplicatedStorage.Modules.Utility) end)
 
-			if not __t6u7v8 or not __w9x0y1 then
+			if not GunModule or not UtilityModule then
 				warn("[Anti-rival] Ragebot modules not found")
 				return
 			end
 
-			local __z2a3b4 = setmetatable({}, {
-				__index = function(_, __c5d6e7)
-					local __f8g9h0 = __k7l8m9.Character
-					if not __f8g9h0 then return nil end
-					if __c5d6e7 == "__root" then return __f8g9h0:FindFirstChild("HumanoidRootPart")
-					elseif __c5d6e7 == "__head" then return __f8g9h0:FindFirstChild("Head") end
+			local CharHelper = setmetatable({}, {
+				__index = function(_, key)
+					local char = LP.Character
+					if not char then return nil end
+					if key == "__root" then return char:FindFirstChild("HumanoidRootPart")
+					elseif key == "__head" then return char:FindFirstChild("Head") end
 					return nil
 				end
 			})
 
-			__p6q7r8.__s9t0u1 = {}
-			local __i1j2k3 = __p6q7r8.__s9t0u1
+			genv.__s9t0u1 = {}
+			local Controller = genv.__s9t0u1
 
-			-- Kill detection
+			-- Kill tracking
 			local killConnections = {}
-			local trackedHumans = {}
+			local tracked = {}
 
 			local function onEnemyDied()
-				if not __i1j2k3.__active then return end
-				-- Start far desync when we get a kill
-				StartKillDesync()
+				if not Controller.__active then return end
+				task.defer(function()
+					task.wait(0.15) -- small delay so death registers
+					StartKillDesync()
+				end)
 			end
 
 			local function trackPlayer(plr)
-				if plr == __k7l8m9 then return end
+				if plr == LP then return end
 				local function hookChar(char)
 					if not char then return end
 					local hum = char:FindFirstChildOfClass("Humanoid")
-					if hum and not trackedHumans[hum] then
-						trackedHumans[hum] = true
-						local conn = hum.Died:Connect(function()
-							onEnemyDied()
-						end)
-						table.insert(killConnections, conn)
-						-- Also health changed as backup
-						local hconn = hum.HealthChanged:Connect(function(hp)
-							if hp <= 0 then
-								onEnemyDied()
-							end
-						end)
-						table.insert(killConnections, hconn)
+					if hum and not tracked[hum] then
+						tracked[hum] = true
+						table.insert(killConnections, hum.Died:Connect(onEnemyDied))
+						table.insert(killConnections, hum.HealthChanged:Connect(function(hp)
+							if hp <= 0 then onEnemyDied() end
+						end))
 					end
 				end
 				if plr.Character then hookChar(plr.Character) end
-				local cconn = plr.CharacterAdded:Connect(hookChar)
-				table.insert(killConnections, cconn)
+				table.insert(killConnections, plr.CharacterAdded:Connect(hookChar))
 			end
 
-			for _, plr in ipairs(__v2w3x4:GetPlayers()) do
-				trackPlayer(plr)
-			end
-			local pconn = __v2w3x4.PlayerAdded:Connect(trackPlayer)
-			table.insert(killConnections, pconn)
+			for _, plr in ipairs(Players:GetPlayers()) do trackPlayer(plr) end
+			table.insert(killConnections, Players.PlayerAdded:Connect(trackPlayer))
 
-			function __i1j2k3:__init()
+			function Controller:__init()
 				self.__active = true
 				self.__target = nil
 				self.__desync = false
@@ -602,36 +624,36 @@ local function initMainScript()
 				self:__setup()
 			end
 
-			function __i1j2k3:__setup()
-				self.__conn1 = __y5z6a7.Heartbeat:Connect(function()
+			function Controller:__setup()
+				self.__conn1 = RunService.Heartbeat:Connect(function()
 					if not self.__active then return end
 					self.__target = self:__find()
 				end)
 
-				local __l4m5n6 = __t6u7v8.StartShooting
-				self.__oldfunc = __l4m5n6
+				local originalShoot = GunModule.StartShooting
+				self.__oldfunc = originalShoot
 
-				__t6u7v8.StartShooting = function(__o7p8q9, ...)
-					local __r0s1t2 = {__l4m5n6(__o7p8q9, ...)}
+				GunModule.StartShooting = function(gun, ...)
+					local results = {originalShoot(gun, ...)}
 
-					if not __o7p8q9.ClientFighter or not __o7p8q9.ClientFighter.IsLocalPlayer then
-						return unpack(__r0s1t2)
+					if not gun.ClientFighter or not gun.ClientFighter.IsLocalPlayer then
+						return unpack(results)
 					end
 
-					local __u3v4w5 = __r0s1t2[3]
-					if not __u3v4w5 or typeof(__u3v4w5) ~= "table" then
-						return unpack(__r0s1t2)
+					local data = results[3]
+					if not data or typeof(data) ~= "table" then
+						return unpack(results)
 					end
 
-					__r0s1t2[4] = true
+					results[4] = true
 
-					local __x6y7z8 = self.__target
-					if not self.__active or not __x6y7z8 or not __x6y7z8.Character then
-						return unpack(__r0s1t2)
+					local target = self.__target
+					if not self.__active or not target or not target.Character then
+						return unpack(results)
 					end
 
-					if not self.__desync or self.__curr ~= __x6y7z8 then
-						self:__desync_start(__x6y7z8)
+					if not self.__desync or self.__curr ~= target then
+						self:__desync_start(target)
 						task.wait(0.1)
 					end
 
@@ -640,53 +662,48 @@ local function initMainScript()
 						self.__task1 = nil
 					end
 
-					local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
-					if not __a9b0c1 then return unpack(__r0s1t2) end
+					local head = target.Character:FindFirstChild("Head")
+					if not head then return unpack(results) end
 
-					local __d2e3f4 = __a9b0c1.Position
-					local __g5h6i7 = __a9b0c1.CFrame
-					local __j8k9l0 = __d2e3f4
-					local __p4q5r6 = __g5h6i7:ToObjectSpace(CFrame.new(__d2e3f4 + Vector3.new(math.random() * 0.1, math.random() * 0.1, math.random() * 0.1)))
+					local headPos = head.Position
+					local headCF = head.CFrame
+					local offset = headCF:ToObjectSpace(CFrame.new(headPos + Vector3.new(math.random() * 0.1, math.random() * 0.1, math.random() * 0.1)))
 
-					__u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(CFrame.new(__j8k9l0, __d2e3f4 + __a9b0c1.CFrame.LookVector))
-					__u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(CFrame.new(__d2e3f4))
-					__u3v4w5[utf8.char(2)] = __a9b0c1
-					__u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
+					data[utf8.char(0)] = UtilityModule:EncodeCFrame(CFrame.new(headPos, headPos + head.CFrame.LookVector))
+					data[utf8.char(1)] = UtilityModule:EncodeCFrame(CFrame.new(headPos))
+					data[utf8.char(2)] = head
+					data[utf8.char(3)] = UtilityModule:EncodeCFrame(offset)
 
 					self.__task1 = task.delay(0.15, function()
 						self:__desync_stop()
 					end)
 
-					return unpack(__r0s1t2)
+					return unpack(results)
 				end
 			end
 
-			function __i1j2k3:__find()
-				local myChar = __k7l8m9.Character
+			function Controller:__find()
+				local myChar = LP.Character
 				if not myChar then return nil end
 				local myRoot = myChar:FindFirstChild("HumanoidRootPart")
 				if not myRoot then return nil end
 
-				local closest = nil
-				local closestDist = math.huge
+				local closest, closestDist = nil, math.huge
 				local MAX_DISTANCE = 200
 
-				for _, plr in next, __v2w3x4:GetPlayers() do
-					if plr == __k7l8m9 then continue end
-					if plr:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
+				for _, plr in ipairs(Players:GetPlayers()) do
+					if plr == LP then continue end
+					if plr:GetAttribute("TeamID") == LP:GetAttribute("TeamID") then continue end
 
 					local char = plr.Character
 					if not char then continue end
-
 					local root = char:FindFirstChild("HumanoidRootPart")
 					local head = char:FindFirstChild("Head")
 					local hum = char:FindFirstChildWhichIsA("Humanoid")
-
 					if not (root and head and hum and hum.Health > 0) then continue end
 
 					local dist = (myRoot.Position - root.Position).Magnitude
 					if dist > MAX_DISTANCE then continue end
-
 					if dist < closestDist then
 						closestDist = dist
 						closest = plr
@@ -695,38 +712,37 @@ local function initMainScript()
 				return closest
 			end
 
-			function __i1j2k3:__desync_start(__c3d4e5)
+			function Controller:__desync_start(target)
 				if self.__conn2 then self.__conn2:Disconnect() end
 				self.__desync = true
-				self.__curr = __c3d4e5
+				self.__curr = target
 
-				self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
+				self.__conn2 = RunService.Heartbeat:Connect(function()
 					if not self.__desync then return end
-					local __f6g7h8 = __z2a3b4.__root
-					if not __f6g7h8 then return end
-
-					local __enemyHead = __c3d4e5.Character and __c3d4e5.Character:FindFirstChild("Head")
-					if not __enemyHead then
+					local root = CharHelper.__root
+					if not root then return end
+					local enemyHead = target.Character and target.Character:FindFirstChild("Head")
+					if not enemyHead then
 						self:__desync_stop()
 						return
 					end
 
-					local __l2m3n4 = __f6g7h8.CFrame
-					local __o5p6q7 = __f6g7h8.Velocity
-					local __r8s9t0 = __f6g7h8.RotVelocity
+					local savedCF = root.CFrame
+					local savedVel = root.Velocity
+					local savedRot = root.RotVelocity
 
-					__f6g7h8.CFrame = __enemyHead.CFrame
+					root.CFrame = enemyHead.CFrame
 
-					__y5z6a7:BindToRenderStep("__restore", 101, function()
-						__f6g7h8.CFrame = __l2m3n4
-						__f6g7h8.Velocity = __o5p6q7
-						__f6g7h8.RotVelocity = __r8s9t0
-						__y5z6a7:UnbindFromRenderStep("__restore")
+					RunService:BindToRenderStep("__restore", 101, function()
+						root.CFrame = savedCF
+						root.Velocity = savedVel
+						root.RotVelocity = savedRot
+						RunService:UnbindFromRenderStep("__restore")
 					end)
 				end)
 			end
 
-			function __i1j2k3:__desync_stop()
+			function Controller:__desync_stop()
 				self.__desync = false
 				self.__curr = nil
 				if self.__conn2 then
@@ -735,25 +751,24 @@ local function initMainScript()
 				end
 			end
 
-			function __i1j2k3:Shutdown()
+			function Controller:Shutdown()
 				self.__active = false
 				if self.__conn1 then self.__conn1:Disconnect() end
 				if self.__conn2 then self.__conn2:Disconnect() end
 				if self.__task1 then task.cancel(self.__task1) end
 				if self.__oldfunc then
-					__t6u7v8.StartShooting = self.__oldfunc
+					GunModule.StartShooting = self.__oldfunc
 				end
-				-- Cleanup kill tracking
 				for _, c in ipairs(killConnections) do
 					pcall(function() c:Disconnect() end)
 				end
 				killConnections = {}
-				trackedHumans = {}
+				tracked = {}
 				StopKillDesync()
 			end
 
-			__i1j2k3:__init()
-			print("[Anti-rival] User Desync Ragebot STARTED (Kill→Far Desync enabled)")
+			Controller:__init()
+			print("[Anti-rival] User Desync Ragebot STARTED (Kill→Far Desync)")
 		end
 
 		local function StopUserRagebot()
@@ -775,11 +790,11 @@ local function initMainScript()
 		end
 
 
-		-- (moved to S table)
+		-- (moved into S)
 
-		-- (moved to S table)
+		-- (moved into S)
 
-		-- (moved to S table)
+		-- (moved into S)
 		local fightConnection = nil
 		local bodyGyro, bodyVelocity = nil, nil
 
@@ -927,7 +942,7 @@ local function initMainScript()
 		watermarkLabel.AutomaticSize = Enum.AutomaticSize.X
 		watermarkLabel.BackgroundTransparency = 1
 		watermarkLabel.RichText = true
-		watermarkLabel.Text = 'Anti-rival beta v0.1.17 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
+		watermarkLabel.Text = 'Anti-rival beta v0.1.16 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">60 FPS</font>'
 		watermarkLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
 		watermarkLabel.TextSize = 11
 		watermarkLabel.Font = Enum.Font.Code
@@ -945,7 +960,7 @@ local function initMainScript()
 				frameCount = 0
 				lastFpsUpdate = now
 				if S.showWatermarkOn then
-					watermarkLabel.Text = 'Anti-rival beta v0.1.17 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
+					watermarkLabel.Text = 'Anti-rival beta v0.1.16 | ' .. player.Name .. ' | <font color="rgb(100,180,255)">' .. currentFps .. ' FPS</font>'
 				end
 			end
 		end))
@@ -972,7 +987,7 @@ local function initMainScript()
 		kbTitle.Position = UDim2.fromOffset(10, 0)
 		kbTitle.BackgroundTransparency = 1
 		kbTitle.RichText = true
-		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.17)</font>'
+		kbTitle.Text = '<font color="rgb(100,180,255)">Keybinds (Anti-rival beta v0.1.16)</font>'
 		kbTitle.TextColor3 = Color3.fromRGB(220, 220, 230)
 		kbTitle.TextSize = 11
 		kbTitle.Font = Enum.Font.Code
@@ -1192,7 +1207,7 @@ local function initMainScript()
 		title.Size = UDim2.new(0, 420, 1, 0)
 		title.Position = UDim2.fromOffset(10, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "Anti-rival beta v0.1.17 - discord.gg/6tCjcYUt7"
+		title.Text = "Anti-rival beta v0.1.16 - discord.gg/6tCjcYUt7"
 		title.TextColor3 = Color3.fromRGB(160, 160, 175)
 		title.TextSize = 11
 		title.Font = Enum.Font.Code
@@ -2593,7 +2608,6 @@ local function initMainScript()
 
 		ragebotButton.MouseButton1Click:Connect(function()
 			S.ragebotOn = not S.ragebotOn
-			ragebotOn = S.ragebotOn
 			env._riv_startRagebot(S.ragebotOn)
 			setToggle(ragebotButton, S.ragebotOn, "ragebot")
 		end)
@@ -2636,7 +2650,7 @@ local function initMainScript()
 		noclipButton.MouseButton1Click:Connect(function() if toggleNoclip then toggleNoclip(not S.noclipOn) end end)
 
 		showPage("main")
-		print("Anti-rival beta v0.1.17 Enhanced & Loaded Successfully! (Silent Aim v4 + FOV/Target/HitPart + Triggerbot)")
+		print("Anti-rival beta v0.1.16 Enhanced & Loaded Successfully! (Silent Aim v4 + FOV/Target/HitPart + Triggerbot)")
 	end)
 end
 
@@ -2676,7 +2690,7 @@ else
 	keyTitle.Position = UDim2.fromOffset(0, 10)
 	keyTitle.BackgroundTransparency = 1
 	keyTitle.RichText = true
-	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.17)</font>'
+	keyTitle.Text = '<font color="rgb(100,180,255)">Anti-rival Key System (Anti-rival beta v0.1.16)</font>'
 	keyTitle.TextSize, keyTitle.Font = 13, Enum.Font.Code
 	keyTitle.TextXAlignment = Enum.TextXAlignment.Center
 	keyTitle.Parent = keyFrame
